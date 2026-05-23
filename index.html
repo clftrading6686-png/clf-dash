@@ -795,6 +795,11 @@
   let _monthlyInfo = {};
   let _selectedDivsRef = null;
 
+  // FIX #11: actual data start/end (computed from daily_breakdown)
+  // Backend's top_sales_reps_window_days is unreliable — use this instead.
+  let _dataStartDate = null;
+  let _dataEndDate = null;
+
   // ====================================================================
   // Main render
   // ====================================================================
@@ -809,6 +814,17 @@
     _divisionDrillPrefix = null;
     _divisionGroupsCache = null;
     _divisionMonth = (d.monthly_info && d.monthly_info.current_month) || new Date().toISOString().slice(0, 7);
+
+    // FIX #11: compute true data range from daily_breakdown
+    if (daily.length) {
+      let minD = daily[0].date, maxD = daily[0].date;
+      for (let i = 1; i < daily.length; i++) {
+        if (daily[i].date < minD) minD = daily[i].date;
+        if (daily[i].date > maxD) maxD = daily[i].date;
+      }
+      _dataStartDate = minD;
+      _dataEndDate = maxD;
+    }
 
     // FIX #3d: bigger, friendlier source pill
     const genTime = d._meta && d._meta.generated_at;
@@ -1581,8 +1597,16 @@
 
     const sub = el('reps-sub');
     if (sub) {
-      const windowDays = meta && meta.top_sales_reps_window_days;
-      const windowText = windowDays ? 'Last ' + windowDays + ' days' : 'Recent';
+      // FIX #11: backend's top_sales_reps_window_days lies (claims 7 days but data is full period).
+      // Use real data range from daily_breakdown until backend provides multi-window data (B19).
+      let windowText;
+      if (_dataStartDate && _dataEndDate) {
+        const startMo = _dataStartDate.slice(0, 7);
+        const endMo = _dataEndDate.slice(0, 7);
+        windowText = startMo === endMo ? startMo : startMo + ' to ' + endMo + ' (full period)';
+      } else {
+        windowText = 'Full period';
+      }
       const scopeText = allSelected ? 'all divisions' : selectedDivs.size + ' divisions';
       sub.textContent = windowText + ' · ' + scopeText + ' · ' + reps.length + ' salespeople (system entries excluded)';
     }
