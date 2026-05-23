@@ -1156,7 +1156,8 @@
         (mi.current_month || '—') + ' · Day ' + dayOfMonth + '/' + daysInMonth +
         ' (' + pctComplete + '% of month)' + targetTxt +
         '<br>MTD <strong>' + fm(mtdValue) + '</strong>' +
-        (target ? ' = <strong style="color:' + statusColor + '">' + pctTarget.toFixed(0) + '%</strong> of target · projected EOM <strong>' + fm(projected) + '</strong> (' + pctProj.toFixed(0) + '%) · ' + status : '');
+        (target ? ' = <strong style="color:' + statusColor + '">' + pctTarget.toFixed(0) + '%</strong> of target · projected EOM <strong>' + fm(projected) + '</strong> (' + pctProj.toFixed(0) + '%) · ' + status : '') +
+        '<br><span style="font-size:11px;color:var(--muted);font-style:italic">(Always reflects current month; ignores date filter)</span>';
     }
 
     // Gauge axis goes 0 → target × 1.1 (so over-achieving shows extra)
@@ -1539,7 +1540,7 @@
           '</div>' +
         '</div>' +
         '<div class="chart-card">' +
-          '<h3 class="chart-title">Monthly Progress</h3>' +
+          '<h3 class="chart-title">Current Month Progress</h3>' +
           '<p class="chart-sub" id="monthly-progress-sub"></p>' +
           '<div class="chart" id="chart-monthly"></div>' +
         '</div>' +
