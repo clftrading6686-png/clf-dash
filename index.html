@@ -590,6 +590,19 @@
       .reduce((s, r) => s + r.sales, 0);
   }
 
+  // FIX #10 (round 2): Compute set of YYYY-MM months covered by date range
+  function monthsInRange(from, to) {
+    const out = new Set();
+    if (!from || !to) return out;
+    const start = new Date(from.slice(0, 7) + '-01T00:00:00Z');
+    const end = new Date(to + 'T00:00:00Z');
+    while (start <= end) {
+      out.add(start.toISOString().slice(0, 7));
+      start.setUTCMonth(start.getUTCMonth() + 1);
+    }
+    return out;
+  }
+
   // ====================================================================
   // DOM refs
   // ====================================================================
@@ -932,26 +945,14 @@
       if (_divisionGroupsCache) renderDivisionGroupsDonut(_divisionGroupsCache);
     };
 
-    // FIX #10: Detect when date filter is narrower than data window;
-    // if so, charts driven by pre-aggregated data (Map/Products/Routes) show a warning.
-    const fullFrom = firstDate, fullTo = today.toISOString().slice(0, 10);
-    function applyDateWarning(cardId, subId, defaultSub, active) {
-      const card = el(cardId), sub = el(subId);
-      if (!sub) return;
-      if (active) {
-        if (card) card.classList.add('dim');
-        sub.innerHTML = '<span style="color:var(--amber);font-weight:500">⚠ Full-period totals · does not respect date filter</span>';
-      } else {
-        if (card) card.classList.remove('dim');
-        sub.textContent = defaultSub;
-      }
-    }
+    // FIX #10 (round 2): superseded — backend B16/17/18 added month×division fields,
+    // so renderTopProducts/Map/Routes apply both date + division correctly. Old warning removed.
 
     function applyFilters() {
       try {
         const from = el('date-from').value, to = el('date-to').value;
-        // FIX #10: is date filter active (narrower than full data range)?
-        const dateFilterActive = (from && from > fullFrom) || (to && to < fullTo);
+        // FIX #10 (round 2): months covered by date range — used by product/state/route monthly fields
+        const monthsSet = monthsInRange(from, to);
 
         // FIX #3b: Date range validation
         if (from && to && from > to) {
@@ -994,10 +995,6 @@
           renderMtdInGauge(d.monthly_info || {}, mtdValue, targetInfo);   // FIX #4: independent of date filter
           // FIX #5: Salespeople also independent of date filter
           updateRepsData(d.all_sales_reps, d.division_sales_reps, selectedDivs, allDivs, d._meta || {});
-          // FIX #10: keep date-warning state consistent even on empty filter
-          applyDateWarning('card-map',         'chart-map-sub',         'Bubble size = sales · color intensity scales with volume', dateFilterActive);
-          applyDateWarning('card-ship-volume', 'chart-ship-volume-sub', 'Units shipped per route (top 10)',                          dateFilterActive);
-          applyDateWarning('card-ship-orders', 'chart-ship-orders-sub', 'Number of orders per route (top 10)',                       dateFilterActive);
           return;
         }
 
@@ -1017,29 +1014,46 @@
 
         const allSelected = selectedDivs.size === allDivs.length;
 
-        // Map
-        if (allSelected) {
-          renderMap(d.state_sales || []);
-        } else if (Array.isArray(d.division_state_sales) && d.division_state_sales.length) {
+        // FIX #10 (round 2): Map via state_monthly — date + division filter both apply
+        if (Array.isArray(d.state_monthly) && d.state_monthly.length) {
           const st = {};
-          d.division_state_sales.filter(r => selectedDivs.has(r.division)).forEach(r => {
+          d.state_monthly.forEach(r => {
+            if (monthsSet.size && !monthsSet.has(r.month)) return;
+            if (!selectedDivs.has(r.division)) return;
             const s = normState(r.state);
             if (s) st[s] = (st[s] || 0) + r.sales;
           });
           renderMap(Object.entries(st).map(([nm, s]) => ({ name: nm, sales: s })));
+        } else if (Array.isArray(d.division_state_sales) && d.division_state_sales.length) {
+          // Legacy fallback
+          const st = {};
+          d.division_state_sales.filter(r => selectedDivs.has(r.division)).forEach(r => {
+            const s = normState(r.state); if (s) st[s] = (st[s] || 0) + r.sales;
+          });
+          renderMap(Object.entries(st).map(([nm, s]) => ({ name: nm, sales: s })));
         } else {
-          clearChart(el('chart-map'));
-          el('chart-map').innerHTML = '<div class="no-data">Per-division state breakdown not available</div>';
+          renderMap(d.state_sales || []);
         }
 
-        // FIX #5: Top Products with smart fallback
-        renderTopProducts(d, selectedDivs, allSelected);
+        // FIX #10 (round 2): Top Products via product_monthly
+        renderTopProducts(d, selectedDivs, allSelected, monthsSet);
 
-        // Routes (volume + orders only, profit handled separately)
-        if (allSelected) {
-          renderRouteBars(d.route_stats || [], 'volume', 'volume', COLORS.teal, 'chart-ship-volume');
-          renderRouteBars(d.route_stats || [], 'orders', 'orders', COLORS.green, 'chart-ship-orders');
+        // FIX #10 (round 2): Routes via route_monthly — date + division filter both apply
+        if (Array.isArray(d.route_monthly) && d.route_monthly.length) {
+          const rt = {};
+          d.route_monthly.forEach(r => {
+            if (monthsSet.size && !monthsSet.has(r.month)) return;
+            if (!selectedDivs.has(r.division)) return;
+            if (!rt[r.route]) rt[r.route] = { sales: 0, volume: 0, orders: 0 };
+            rt[r.route].sales  += r.sales || 0;
+            rt[r.route].volume += r.volume || 0;
+            rt[r.route].orders += r.orders || 0;
+          });
+          const rtArr = Object.entries(rt).map(([nm, v]) => ({ name: nm, ...v }));
+          renderRouteBars(rtArr, 'volume', 'volume', COLORS.teal, 'chart-ship-volume');
+          renderRouteBars(rtArr, 'orders', 'orders', COLORS.green, 'chart-ship-orders');
         } else if (Array.isArray(d.division_route_stats) && d.division_route_stats.length) {
+          // Legacy fallback
           const rt = {};
           d.division_route_stats.filter(r => selectedDivs.has(r.division)).forEach(r => {
             if (!rt[r.route]) rt[r.route] = { sales: 0, volume: 0, orders: 0 };
@@ -1047,14 +1061,12 @@
             rt[r.route].volume += r.volume || 0;
             rt[r.route].orders += r.orders || 0;
           });
-          const rtArr = Object.entries(rt).map(([nm, v]) => ({ name: nm, profit: v.sales, ...v }));
+          const rtArr = Object.entries(rt).map(([nm, v]) => ({ name: nm, ...v }));
           renderRouteBars(rtArr, 'volume', 'volume', COLORS.teal, 'chart-ship-volume');
           renderRouteBars(rtArr, 'orders', 'orders', COLORS.green, 'chart-ship-orders');
         } else {
-          ['chart-ship-volume','chart-ship-orders'].forEach(id => {
-            clearChart(el(id));
-            el(id).innerHTML = '<div class="no-data">Per-division route breakdown not available</div>';
-          });
+          renderRouteBars(d.route_stats || [], 'volume', 'volume', COLORS.teal, 'chart-ship-volume');
+          renderRouteBars(d.route_stats || [], 'orders', 'orders', COLORS.green, 'chart-ship-orders');
         }
 
         // FIX #6: Profit Share always shows Not Available
@@ -1066,18 +1078,15 @@
         // FIX #5: Salespeople (Top 5 + optional Bottom 5 / All), filtered by division
         updateRepsData(d.all_sales_reps, d.division_sales_reps, selectedDivs, allDivs, d._meta || {});
 
-        // FIX #10: Warn user that pre-aggregated charts ignore date filter
-        applyDateWarning('card-map',         'chart-map-sub',         'Bubble size = sales · color intensity scales with volume', dateFilterActive);
-        applyDateWarning('card-ship-volume', 'chart-ship-volume-sub', 'Units shipped per route (top 10)',                          dateFilterActive);
-        applyDateWarning('card-ship-orders', 'chart-ship-orders-sub', 'Number of orders per route (top 10)',                       dateFilterActive);
-        // Top Products: renderTopProducts manages its own subtitle for division logic;
-        // append date warning on top when applicable
-        if (dateFilterActive) {
-          const card = el('card-products'), sub = el('chart-products-sub');
-          if (card) card.classList.add('dim');
-          if (sub) sub.innerHTML = '<span style="color:var(--amber);font-weight:500">⚠ Full-period totals · does not respect date filter</span>';
-        }
-        // (When NOT active, renderTopProducts already restored proper subtitle.)
+        // FIX #10 (round 2): Map / Routes / Products now respect both date + division
+        // via product_monthly / state_monthly / route_monthly — clear any leftover dim.
+        ['card-map','card-ship-profit','card-ship-volume','card-ship-orders','card-products'].forEach(id => {
+          const c = el(id); if (c) c.classList.remove('dim');
+        });
+        // Restore default subtitles for map + routes (route_monthly handles it)
+        const mapSub = el('chart-map-sub'); if (mapSub) mapSub.textContent = 'Bubble size = sales · color intensity scales with volume';
+        const vSub = el('chart-ship-volume-sub'); if (vSub) vSub.textContent = 'Units shipped per route (top 10)';
+        const oSub = el('chart-ship-orders-sub'); if (oSub) oSub.textContent = 'Number of orders per route (top 10)';
 
       } catch (e) {
         console.error('Filter error:', e);
@@ -1362,20 +1371,42 @@
     }), PLOTLY_CONFIG);
   }
 
-  // FIX #5: Top Products with smart fallback
-  function renderTopProducts(d, selectedDivs, allSelected) {
+  // FIX #10 (round 2): Top Products via product_monthly (month × division × product)
+  // Both date filter AND division filter applied properly
+  function renderTopProducts(d, selectedDivs, allSelected, monthsSet) {
     const card = el('card-products');
     const title = el('chart-products-title');
     const sub = el('chart-products-sub');
     card.classList.remove('dim');
     sub.classList.remove('warn');
+    title.textContent = 'Top 10 Products';
 
+    // Prefer new product_monthly; fall back to old paths if missing
+    if (Array.isArray(d.product_monthly) && d.product_monthly.length) {
+      const prodMap = {};
+      d.product_monthly.forEach(r => {
+        if (monthsSet.size && !monthsSet.has(r.month)) return;
+        if (!selectedDivs.has(r.division)) return;
+        const k = r.product;
+        if (!prodMap[k]) prodMap[k] = { sales: 0, quantity: 0 };
+        prodMap[k].sales += num(r.sales);
+        prodMap[k].quantity += num(r.quantity);
+      });
+      const arr = Object.entries(prodMap)
+        .map(([nm, v]) => ({ name: nm, ...v }))
+        .sort((a, b) => b.sales - a.sales).slice(0, 10);
+      const scopeText = allSelected ? 'all divisions' : selectedDivs.size + ' divisions';
+      const periodText = monthsSet.size ? monthsSet.size + ' month' + (monthsSet.size === 1 ? '' : 's') : 'all time';
+      sub.textContent = 'Best sellers · ' + scopeText + ' · ' + periodText;
+      renderProducts(arr);
+      return;
+    }
+
+    // Legacy fallback (in case backend rolls back product_monthly)
     if (allSelected) {
-      title.textContent = 'Top 10 Products';
       sub.textContent = 'Best sellers by total revenue (all divisions)';
       renderProducts(d.top_products || []);
     } else if (Array.isArray(d.division_top_products) && d.division_top_products.length) {
-      // Backend provides per-division product breakdown — filter properly
       const prodMap = {};
       d.division_top_products.filter(r => selectedDivs.has(r.division)).forEach(r => {
         const k = r.product;
@@ -1385,13 +1416,10 @@
       });
       const arr = Object.entries(prodMap).map(([nm, v]) => ({ name: nm, ...v }))
         .sort((a, b) => b.sales - a.sales).slice(0, 10);
-      title.textContent = 'Top 10 Products';
-      sub.textContent = 'Best sellers in selected divisions';
+      sub.textContent = 'Best sellers in selected divisions (full period)';
       renderProducts(arr);
     } else {
-      // No per-division data — show global with clear warning
-      title.textContent = 'Top 10 Products (all divisions)';
-      sub.innerHTML = '<span style="color:var(--amber)">⚠ Filter not applied</span> · per-division data not yet provided by backend (see B8)';
+      sub.innerHTML = '<span style="color:var(--amber)">⚠ No product data</span>';
       sub.classList.add('warn');
       card.classList.add('dim');
       renderProducts(d.top_products || []);
