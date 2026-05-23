@@ -1010,7 +1010,7 @@
           resetDivisionChartHeader();
           renderMtdInGauge(d.monthly_info || {}, mtdValue, targetInfo);   // FIX #4: independent of date filter
           // FIX #5: Salespeople also independent of date filter
-          updateRepsData(d.all_sales_reps, d.division_sales_reps, selectedDivs, allDivs, d._meta || {});
+          updateRepsData(d, selectedDivs, allDivs);
           return;
         }
 
@@ -1092,7 +1092,7 @@
         renderMtdInGauge(d.monthly_info || {}, mtdValue, targetInfo);
 
         // FIX #5: Salespeople (Top 5 + optional Bottom 5 / All), filtered by division
-        updateRepsData(d.all_sales_reps, d.division_sales_reps, selectedDivs, allDivs, d._meta || {});
+        updateRepsData(d, selectedDivs, allDivs);
 
         // FIX #10 (round 2): Map / Routes / Products now respect both date + division
         // via product_monthly / state_monthly / route_monthly — clear any leftover dim.
@@ -1508,11 +1508,14 @@
 
   // FIX #7: Top Sales Reps — filter out system entries; FIX #3f: dynamic subtitle
   // ====================================================================
-  // FIX #5 (round 3): Salespeople — Top 5 + Bottom 5 + Show All + division filter
+  // FIX #5 (round 3) + #11B (round 5): Salespeople — Top 5 + Bottom 5 + Show All
+  // + 7d/30d/MTD/All window selector + division filter
   // ====================================================================
   let _currentRepsList = [];
   let _bottomShown = false;
   let _allShown = false;
+  let _repsWindow = 'all';                    // FIX #11B: '7d'|'30d'|'mtd'|'all'
+  let _cachedRepsContext = null;              // For toggle re-render
 
   // Builds the row structure once (subsequent calls are no-ops)
   function ensureRepsRow() {
@@ -1520,7 +1523,15 @@
     const html =
       '<div id="top-reps-row" class="row cols-2 fade-up" style="animation-delay:0.65s">' +
         '<div class="chart-card">' +
-          '<h3 class="chart-title">Salespeople</h3>' +
+          '<div class="chart-title-row">' +
+            '<h3 class="chart-title">Salespeople</h3>' +
+            '<div class="granularity-toggle" id="reps-window-toggle">' +
+              '<button data-w="7d"  type="button">7d</button>' +
+              '<button data-w="30d" type="button">30d</button>' +
+              '<button data-w="mtd" type="button">MTD</button>' +
+              '<button class="active" data-w="all" type="button">All</button>' +
+            '</div>' +
+          '</div>' +
           '<p class="chart-sub" id="reps-sub">—</p>' +
           '<div class="reps-section">' +
             '<h4 class="reps-section-title">🏆 Top 5</h4>' +
@@ -1561,6 +1572,20 @@
       _updateToggleAllLabel();
       if (_allShown) renderAllRepsList(_currentRepsList);
     };
+
+    // FIX #11B: window selector (7d / 30d / MTD / All)
+    const winWrap = el('reps-window-toggle');
+    if (winWrap) {
+      winWrap.querySelectorAll('button[data-w]').forEach(btn => {
+        btn.onclick = () => {
+          _repsWindow = btn.dataset.w;
+          winWrap.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+          if (_cachedRepsContext) {
+            updateRepsData(_cachedRepsContext.d, _cachedRepsContext.selectedDivs, _cachedRepsContext.allDivs);
+          }
+        };
+      });
+    }
   }
 
   function _getTop5() { return _currentRepsList.slice(0, 5); }
@@ -1577,15 +1602,21 @@
       : '▾ Show All (' + _currentRepsList.length + ')';
   }
 
-  // Compute list per division filter + update all visible sections
-  function updateRepsData(allReps, divReps, selectedDivs, allDivs, meta) {
+  // FIX #11B (round 5): takes full `d`, picks windowed fields based on _repsWindow
+  function updateRepsData(d, selectedDivs, allDivs) {
+    _cachedRepsContext = { d, selectedDivs, allDivs };
+
+    const win = _repsWindow;
+    const allReps = d['all_sales_reps_' + win] || d.all_sales_reps_all || d.all_sales_reps || [];
+    const divReps = d['division_sales_reps_' + win] || d.division_sales_reps_all || d.division_sales_reps || [];
+
     const allSelected = selectedDivs.size === allDivs.length;
     let reps;
     if (allSelected) {
-      reps = (allReps || []).filter(r => !isSystemRep(r.name)).slice();
+      reps = allReps.filter(r => !isSystemRep(r.name)).slice();
     } else {
       const byName = {};
-      (divReps || []).forEach(r => {
+      divReps.forEach(r => {
         if (!selectedDivs.has(r.division)) return;
         if (isSystemRep(r.name)) return;
         byName[r.name] = (byName[r.name] || 0) + r.sales;
@@ -1598,13 +1629,14 @@
 
     const sub = el('reps-sub');
     if (sub) {
-      // FIX #11: backend's top_sales_reps_window_days lies (claims 7 days but data is full period).
-      // Use real data range from daily_breakdown until backend provides multi-window data (B19).
+      // FIX #11B: honest window label based on selector
       let windowText;
-      if (_dataStartDate && _dataEndDate) {
-        const startMo = _dataStartDate.slice(0, 7);
-        const endMo = _dataEndDate.slice(0, 7);
-        windowText = startMo === endMo ? startMo : startMo + ' to ' + endMo + ' (full period)';
+      if (win === '7d')       windowText = 'Last 7 days';
+      else if (win === '30d') windowText = 'Last 30 days';
+      else if (win === 'mtd') windowText = 'Month to date · ' + ((d.monthly_info && d.monthly_info.current_month) || '');
+      else if (_dataStartDate && _dataEndDate) {
+        const sMo = _dataStartDate.slice(0, 7), eMo = _dataEndDate.slice(0, 7);
+        windowText = sMo === eMo ? sMo : sMo + ' to ' + eMo + ' (full period)';
       } else {
         windowText = 'Full period';
       }
