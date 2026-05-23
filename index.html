@@ -171,6 +171,23 @@
   .drill-back-btn:hover { border-color: var(--blue); background: var(--blue-tint); }
   .drill-back-btn.active { display: inline-block; }
 
+  /* FIX #5 (round 3): Salespeople multi-section UI */
+  .reps-section { margin-top: 8px; }
+  .reps-section-title { font-size: 12px; font-weight: 700; color: var(--muted); margin: 8px 0 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .reps-chart { height: 220px; }
+  .reps-actions { display: flex; gap: 8px; margin: 14px 0 4px; flex-wrap: wrap; }
+  .reps-toggle { font-size: 12px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); cursor: pointer; color: var(--text); font-family: inherit; font-weight: 500; transition: all 0.15s; }
+  .reps-toggle:hover { border-color: var(--blue); color: var(--blue); }
+  .reps-toggle.active { background: var(--blue-tint); border-color: var(--blue); color: var(--blue); font-weight: 600; }
+  .reps-all-list { max-height: 360px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .reps-row { display: flex; align-items: center; padding: 6px 12px; font-size: 12px; gap: 12px; border-bottom: 1px solid #f1f5f9; }
+  .reps-row:last-child { border-bottom: none; }
+  .reps-row:nth-child(even) { background: #fafbfc; }
+  .reps-row:hover { background: var(--blue-tint); }
+  .reps-rank { width: 36px; color: var(--muted); font-weight: 600; flex-shrink: 0; }
+  .reps-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .reps-sales { color: var(--blue); font-weight: 700; flex-shrink: 0; }
+
   /* FIX #3: D/W/M granularity toggle */
   .granularity-toggle { margin-left: auto; display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
   .granularity-toggle button { padding: 4px 10px; font-size: 11px; background: var(--card); border: none; cursor: pointer; color: var(--muted); font-family: inherit; font-weight: 600; transition: all 0.15s; min-width: 28px; }
@@ -967,6 +984,8 @@
           renderProfitNotAvailable();   // FIX #6 always shows
           resetDivisionChartHeader();
           renderMtdInGauge(d.monthly_info || {}, mtdValue, targetInfo);   // FIX #4: independent of date filter
+          // FIX #5: Salespeople also independent of date filter
+          updateRepsData(d.all_sales_reps, d.division_sales_reps, selectedDivs, allDivs, d._meta || {});
           return;
         }
 
@@ -1032,15 +1051,19 @@
         // FIX #4: MTD + target (already computed above, just render)
         renderMtdInGauge(d.monthly_info || {}, mtdValue, targetInfo);
 
+        // FIX #5: Salespeople (Top 5 + optional Bottom 5 / All), filtered by division
+        updateRepsData(d.all_sales_reps, d.division_sales_reps, selectedDivs, allDivs, d._meta || {});
+
       } catch (e) {
         console.error('Filter error:', e);
       }
     }
 
-    applyFilters();
+    // FIX #5 (round 3): Create Salespeople + Monthly Progress structure BEFORE applyFilters
+    // so the gauge + reps update on every filter change
+    ensureRepsRow();
 
-    // FIX #7: Top Sales Reps filtered to exclude system entries
-    renderTopReps(d.top_sales_reps || [], d._meta || {});
+    applyFilters();
   }
 
   // ====================================================================
@@ -1396,59 +1419,155 @@
   }
 
   // FIX #7: Top Sales Reps — filter out system entries; FIX #3f: dynamic subtitle
-  function renderTopReps(tsr, meta) {
-    const existing = el('top-reps-row');
-    if (existing) {
-      ['chart-top-reps', 'chart-monthly'].forEach(id => {
-        const node = el(id); if (node) clearChart(node);
-      });
-      existing.remove();
-    }
-    if (!tsr || !tsr.length) return;
+  // ====================================================================
+  // FIX #5 (round 3): Salespeople — Top 5 + Bottom 5 + Show All + division filter
+  // ====================================================================
+  let _currentRepsList = [];
+  let _bottomShown = false;
+  let _allShown = false;
 
-    // Filter out system entries (WAREHOUSE *, etc.)
-    const real = tsr.filter(r => !isSystemRep(r.name));
-    const top5 = real.slice(0, 5);
-
-    const windowDays = meta && meta.top_sales_reps_window_days;
-    const subtitle = windowDays
-      ? 'Last ' + windowDays + ' days · highest sales by salesperson (system entries excluded)'
-      : 'Highest sales by salesperson (system entries excluded)';
-
-    const html = '<div id="top-reps-row" class="row cols-2 fade-up" style="animation-delay:0.65s">' +
-                   '<div class="chart-card">' +
-                     '<h3 class="chart-title">Top 5 Salespeople</h3>' +
-                     '<p class="chart-sub">' + subtitle + '</p>' +
-                     '<div class="chart" id="chart-top-reps"></div>' +
-                   '</div>' +
-                   '<div class="chart-card">' +
-                     '<h3 class="chart-title">Monthly Progress</h3>' +
-                     '<p class="chart-sub" id="monthly-progress-sub"></p>' +
-                     '<div class="chart" id="chart-monthly"></div>' +
-                   '</div>' +
-                 '</div>';
+  // Builds the row structure once (subsequent calls are no-ops)
+  function ensureRepsRow() {
+    if (el('top-reps-row')) return;
+    const html =
+      '<div id="top-reps-row" class="row cols-2 fade-up" style="animation-delay:0.65s">' +
+        '<div class="chart-card">' +
+          '<h3 class="chart-title">Salespeople</h3>' +
+          '<p class="chart-sub" id="reps-sub">—</p>' +
+          '<div class="reps-section">' +
+            '<h4 class="reps-section-title">🏆 Top 5</h4>' +
+            '<div class="chart reps-chart" id="chart-top-reps"></div>' +
+          '</div>' +
+          '<div class="reps-actions">' +
+            '<button class="reps-toggle" id="toggle-bottom" type="button">▾ Show Bottom 5</button>' +
+            '<button class="reps-toggle" id="toggle-all" type="button">▾ Show All</button>' +
+          '</div>' +
+          '<div class="reps-section" id="reps-bottom" style="display:none;">' +
+            '<h4 class="reps-section-title">📉 Bottom 5</h4>' +
+            '<div class="chart reps-chart" id="chart-bottom-reps"></div>' +
+          '</div>' +
+          '<div class="reps-section" id="reps-all" style="display:none;">' +
+            '<h4 class="reps-section-title">📋 All Salespeople</h4>' +
+            '<div class="reps-all-list" id="reps-all-list"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="chart-card">' +
+          '<h3 class="chart-title">Monthly Progress</h3>' +
+          '<p class="chart-sub" id="monthly-progress-sub"></p>' +
+          '<div class="chart" id="chart-monthly"></div>' +
+        '</div>' +
+      '</div>';
     el('dashboard').insertAdjacentHTML('beforeend', html);
 
-    if (!top5.length) {
-      el('chart-top-reps').innerHTML = '<div class="no-data">No salespeople data (all entries are system)</div>';
-    } else {
-      const names  = top5.map(r => r.name).reverse();
-      const vals   = top5.map(r => r.sales).reverse();
-      const len    = names.length;
-      const colors = names.map((_, i) => lerp(COLORS.blue, COLORS.teal, len > 1 ? i / (len - 1) : 0));
+    el('toggle-bottom').onclick = () => {
+      _bottomShown = !_bottomShown;
+      el('reps-bottom').style.display = _bottomShown ? '' : 'none';
+      el('toggle-bottom').classList.toggle('active', _bottomShown);
+      el('toggle-bottom').textContent = _bottomShown ? '▴ Hide Bottom 5' : '▾ Show Bottom 5';
+      if (_bottomShown) renderRepsBar('chart-bottom-reps', _getBottom5(), true);
+    };
+    el('toggle-all').onclick = () => {
+      _allShown = !_allShown;
+      el('reps-all').style.display = _allShown ? '' : 'none';
+      el('toggle-all').classList.toggle('active', _allShown);
+      _updateToggleAllLabel();
+      if (_allShown) renderAllRepsList(_currentRepsList);
+    };
+  }
 
-      Plotly.newPlot('chart-top-reps', [{
-        x: vals, y: names, type: 'bar', orientation: 'h',
-        marker: { color: colors },
-        text: vals.map(v => fm(v)), textposition: 'auto', cliponaxis: false,
-        textfont: { family: PLOTLY_FONT.family, size: 12, color: COLORS.text },
-        hovertemplate: '<b>%{y}</b><br>Sales: RM %{x:,.0f}<extra></extra>'
-      }], Object.assign(baseLayout(), {
-        margin: { l: 140, r: 60, t: 10, b: 40 },
-        xaxis: Object.assign({}, baseLayout().xaxis, { tickprefix: 'RM ', tickformat: ',.0s' }),
-        yaxis: Object.assign({}, baseLayout().yaxis, { autorange: true, tickfont: { color: COLORS.text, size: 12 } })
-      }), PLOTLY_CONFIG);
+  function _getTop5() { return _currentRepsList.slice(0, 5); }
+  function _getBottom5() {
+    // Avoid overlap with Top 5: take last 5 only if total > 10
+    const len = _currentRepsList.length;
+    if (len <= 5)  return [];
+    if (len <= 10) return _currentRepsList.slice(5);   // show "next tier" if 6-10
+    return _currentRepsList.slice(-5);
+  }
+  function _updateToggleAllLabel() {
+    el('toggle-all').textContent = _allShown
+      ? '▴ Hide All (' + _currentRepsList.length + ')'
+      : '▾ Show All (' + _currentRepsList.length + ')';
+  }
+
+  // Compute list per division filter + update all visible sections
+  function updateRepsData(allReps, divReps, selectedDivs, allDivs, meta) {
+    const allSelected = selectedDivs.size === allDivs.length;
+    let reps;
+    if (allSelected) {
+      reps = (allReps || []).filter(r => !isSystemRep(r.name)).slice();
+    } else {
+      const byName = {};
+      (divReps || []).forEach(r => {
+        if (!selectedDivs.has(r.division)) return;
+        if (isSystemRep(r.name)) return;
+        byName[r.name] = (byName[r.name] || 0) + r.sales;
+      });
+      reps = Object.entries(byName)
+        .map(([name, sales]) => ({ name, sales }))
+        .sort((a, b) => b.sales - a.sales);
     }
+    _currentRepsList = reps;
+
+    const sub = el('reps-sub');
+    if (sub) {
+      const windowDays = meta && meta.top_sales_reps_window_days;
+      const windowText = windowDays ? 'Last ' + windowDays + ' days' : 'Recent';
+      const scopeText = allSelected ? 'all divisions' : selectedDivs.size + ' divisions';
+      sub.textContent = windowText + ' · ' + scopeText + ' · ' + reps.length + ' salespeople (system entries excluded)';
+    }
+
+    renderRepsBar('chart-top-reps', _getTop5(), false);
+    if (_bottomShown) renderRepsBar('chart-bottom-reps', _getBottom5(), true);
+    if (_allShown)    renderAllRepsList(reps);
+    _updateToggleAllLabel();
+  }
+
+  function renderRepsBar(chartId, list, isBottom) {
+    const target = el(chartId);
+    if (!target) return;
+    clearChart(target);
+    if (!list.length) {
+      target.innerHTML = '<div class="no-data">' + (isBottom ? 'No bottom data (too few salespeople)' : 'No salespeople data') + '</div>';
+      return;
+    }
+    const names = list.map(r => r.name).reverse();
+    const vals  = list.map(r => r.sales).reverse();
+    const len   = names.length;
+    const colors = isBottom
+      ? names.map((_, i) => lerp(COLORS.rose, COLORS.amber, len > 1 ? i / (len - 1) : 0))
+      : names.map((_, i) => lerp(COLORS.blue, COLORS.teal, len > 1 ? i / (len - 1) : 0));
+    Plotly.newPlot(target, [{
+      x: vals, y: names, type: 'bar', orientation: 'h',
+      marker: { color: colors },
+      text: vals.map(v => fm(v)), textposition: 'auto', cliponaxis: false,
+      textfont: { family: PLOTLY_FONT.family, size: 12, color: COLORS.text },
+      hovertemplate: '<b>%{y}</b><br>Sales: RM %{x:,.0f}<extra></extra>'
+    }], Object.assign(baseLayout(), {
+      margin: { l: 140, r: 60, t: 10, b: 40 },
+      xaxis: Object.assign({}, baseLayout().xaxis, { tickprefix: 'RM ', tickformat: ',.0s' }),
+      yaxis: Object.assign({}, baseLayout().yaxis, { autorange: true, tickfont: { color: COLORS.text, size: 12 } })
+    }), PLOTLY_CONFIG);
+  }
+
+  function renderAllRepsList(reps) {
+    const list = el('reps-all-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!reps.length) {
+      list.innerHTML = '<div class="no-data" style="padding:24px">No salespeople</div>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    reps.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'reps-row';
+      const rank = document.createElement('span'); rank.className = 'reps-rank'; rank.textContent = '#' + (i + 1);
+      const name = document.createElement('span'); name.className = 'reps-name'; name.textContent = r.name;
+      const sales = document.createElement('span'); sales.className = 'reps-sales'; sales.textContent = fm(r.sales);
+      row.append(rank, name, sales);
+      frag.appendChild(row);
+    });
+    list.appendChild(frag);
   }
 
   // ====================================================================
