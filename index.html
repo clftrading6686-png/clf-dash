@@ -4,18 +4,15 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Sales Performance Dashboard — CLF Trading</title>
-<!-- Build: 2026-05-23 — Supabase Auth + dashboard (anon-key only, no service-role embedded) -->
+<!-- Build: 2026-05-23 v2 — 14 frontend fixes applied -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
 <style>
   :root {
-    --bg: #f0f4f8;
-    --card: #ffffff;
-    --border: #e2e8f0;
-    --text: #0f172a;
-    --muted: #64748b;
+    --bg: #f0f4f8; --card: #ffffff; --border: #e2e8f0;
+    --text: #0f172a; --muted: #64748b;
     --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.06);
     --shadow-hover: 0 4px 8px rgba(15, 23, 42, 0.06), 0 12px 24px rgba(15, 23, 42, 0.10);
     --blue: #2563eb; --teal: #0891b2; --green: #059669;
@@ -27,175 +24,88 @@
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
-  body {
-    font-family: var(--font); background: var(--bg); color: var(--text);
-    min-height: 100vh; -webkit-font-smoothing: antialiased; line-height: 1.5;
-  }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; line-height: 1.5; }
 
-  /* ===== Login overlay ===== */
-  #login-overlay {
-    position: fixed; inset: 0; z-index: 9999;
-    background: var(--bg);
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px;
-  }
-  .login-card {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 40px 36px;
-    width: 420px; max-width: 100%;
-    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
-  }
-  .login-eyebrow {
-    display: inline-block; padding: 4px 12px; border-radius: 999px;
-    background: var(--blue-tint); color: var(--blue);
-    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
-    text-transform: uppercase; margin-bottom: 12px;
-  }
+  /* ===== Login overlay (FIX #3a: removed Sign Up toggle) ===== */
+  #login-overlay { position: fixed; inset: 0; z-index: 9999; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 40px 36px; width: 420px; max-width: 100%; box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08); }
+  .login-eyebrow { display: inline-block; padding: 4px 12px; border-radius: 999px; background: var(--blue-tint); color: var(--blue); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; }
   .login-card h1 { font-size: 26px; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.01em; }
   .login-card h1 .accent { color: var(--blue); }
   .login-sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
-  .login-divider {
-    width: 40px; height: 3px; border-radius: 999px;
-    background: linear-gradient(90deg, var(--blue), var(--teal));
-    margin-bottom: 28px;
-  }
+  .login-divider { width: 40px; height: 3px; border-radius: 999px; background: linear-gradient(90deg, var(--blue), var(--teal)); margin-bottom: 28px; }
   .field { margin-bottom: 14px; }
-  .field label {
-    display: block; font-size: 12px; font-weight: 600;
-    color: var(--muted); margin-bottom: 6px;
-    text-transform: uppercase; letter-spacing: 0.05em;
-  }
-  .field input {
-    width: 100%; padding: 11px 14px; border: 1px solid var(--border);
-    border-radius: 10px; font-family: inherit; font-size: 14px;
-    background: #fff; transition: border-color 0.15s;
-  }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 14px; background: #fff; transition: border-color 0.15s; }
   .field input:focus { outline: none; border-color: var(--blue); }
-  .login-msg {
-    font-size: 13px; margin: 8px 0 14px; padding: 10px 12px;
-    border-radius: 8px; display: none;
-  }
+  .login-msg { font-size: 13px; margin: 8px 0 14px; padding: 10px 12px; border-radius: 8px; display: none; }
   .login-msg.error { display: block; background: var(--rose-tint); color: #9f1239; border: 1px solid #fecdd3; }
-  .login-msg.ok    { display: block; background: var(--green-tint); color: #065f46; border: 1px solid #a7f3d0; }
-  .login-btn {
-    width: 100%; padding: 12px; border-radius: 10px;
-    border: none; background: var(--blue); color: #fff;
-    font-family: inherit; font-size: 15px; font-weight: 600;
-    cursor: pointer; transition: all 0.15s;
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
-  }
-  .login-btn:hover:not(:disabled) {
-    background: #1d4ed8; transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
-  }
+  .login-msg.info { display: block; background: var(--blue-tint); color: #1e3a8a; border: 1px solid #bfdbfe; }
+  .login-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--blue); color: #fff; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.15s; box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25); }
+  .login-btn:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35); }
   .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .toggle-mode {
-    display: block; background: none; border: none; cursor: pointer;
-    color: var(--blue); font-family: inherit; font-weight: 500;
-    font-size: 13px; padding: 12px 0 0; margin: 0 auto;
-    text-align: center; width: 100%;
-  }
-  .toggle-mode:hover { text-decoration: underline; }
-  .login-footer {
-    margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border);
-    text-align: center; color: var(--muted); font-size: 12px;
-  }
+  .login-footer { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; color: var(--muted); font-size: 12px; }
 
   .container { max-width: 1400px; margin: 0 auto; padding: 48px 32px 32px; }
 
-  /* ===== Header ===== */
   .header { text-align: center; margin-bottom: 40px; }
-  .eyebrow {
-    display: inline-block; padding: 6px 16px; border-radius: 999px;
-    background: var(--blue-tint); color: var(--blue);
-    font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
-    text-transform: uppercase; margin-bottom: 16px;
-  }
+  .eyebrow { display: inline-block; padding: 6px 16px; border-radius: 999px; background: var(--blue-tint); color: var(--blue); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
   .title { font-size: 44px; font-weight: 800; margin: 0 0 12px; letter-spacing: -0.02em; color: var(--text); }
   .title .accent { color: var(--blue); }
   .subtitle { color: var(--muted); font-size: 16px; margin: 0 auto 20px; max-width: 620px; font-weight: 400; }
-  .divider {
-    width: 60px; height: 4px; margin: 0 auto; border-radius: 999px;
-    background: linear-gradient(90deg, var(--blue), var(--teal));
-  }
+  .divider { width: 60px; height: 4px; margin: 0 auto; border-radius: 999px; background: linear-gradient(90deg, var(--blue), var(--teal)); }
 
   /* Filters Bar */
-  .filters-bar {
-    display: flex; align-items: center; gap: 24px;
-    margin-bottom: 24px; flex-wrap: wrap;
-    position: relative; z-index: 50;
-  }
+  .filters-bar { display: flex; align-items: center; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; position: relative; z-index: 50; }
   .filter-group { display: flex; align-items: center; gap: 8px; }
   .filter-label { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; }
-  .multi-select-wrap { position: relative; min-width: 200px; }
-  .multi-select-trigger {
-    display: flex; align-items: center; justify-content: space-between;
-    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-    padding: 8px 12px; cursor: pointer; font-size: 13px;
-    box-shadow: var(--shadow); user-select: none;
-  }
+  .multi-select-wrap { position: relative; min-width: 220px; }
+  .multi-select-trigger { display: flex; align-items: center; justify-content: space-between; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; cursor: pointer; font-size: 13px; box-shadow: var(--shadow); user-select: none; }
   .multi-select-trigger:hover { border-color: var(--blue); }
   .ms-arrow { font-size: 10px; color: var(--muted); margin-left: 8px; }
-  .multi-select-dropdown {
-    display: none; position: absolute; top: 100%; left: 0; right: 0;
-    z-index: 100; background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; margin-top: 4px;
-    box-shadow: 0 8px 24px rgba(15,23,42,0.12);
-    max-height: 300px; overflow: hidden;
-  }
+  .multi-select-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100; background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-top: 4px; box-shadow: 0 8px 24px rgba(15,23,42,0.12); max-height: 420px; overflow: hidden; min-width: 280px; }
   .multi-select-dropdown.open { display: flex; flex-direction: column; }
   .ms-actions { display: flex; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .ms-btn {
-    padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border);
-    background: var(--card); font-family: inherit; font-size: 12px;
-    font-weight: 500; cursor: pointer; color: var(--text);
-  }
+  .ms-btn { padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer; color: var(--text); }
   .ms-btn:hover { border-color: var(--blue); color: var(--blue); }
+  /* FIX #3c: search input */
+  .ms-search-wrap { padding: 8px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .ms-search { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-family: inherit; }
+  .ms-search:focus { outline: none; border-color: var(--blue); }
   .ms-list { overflow-y: auto; padding: 4px 0; flex: 1; }
-  .ms-item {
-    display: flex; align-items: center; gap: 8px; padding: 5px 12px;
-    cursor: pointer; font-size: 13px; transition: background 0.1s;
-  }
+  /* FIX #2: hierarchical groups */
+  .ms-group { border-bottom: 1px solid #f1f5f9; }
+  .ms-group:last-child { border-bottom: none; }
+  .ms-group-header { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; user-select: none; font-size: 13px; font-weight: 600; background: #fafbfc; }
+  .ms-group-header:hover { background: var(--blue-tint); }
+  .ms-group-arrow { font-size: 10px; color: var(--muted); width: 12px; transition: transform 0.15s; }
+  .ms-group.open > .ms-group-header .ms-group-arrow { transform: rotate(90deg); }
+  .ms-group-name { flex: 1; color: var(--text); }
+  .ms-group-count { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .ms-group-children { display: none; padding-left: 24px; background: #fff; }
+  .ms-group.open > .ms-group-children { display: block; }
+  .ms-item { display: flex; align-items: center; gap: 8px; padding: 4px 12px; cursor: pointer; font-size: 13px; transition: background 0.1s; }
   .ms-item:hover { background: var(--blue-tint); }
   .ms-item input[type="checkbox"] { accent-color: var(--blue); flex-shrink: 0; }
   .ms-item .ms-item-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  .date-input {
-    padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px;
-    font-family: inherit; font-size: 13px; background: var(--card);
-    box-shadow: var(--shadow); color: var(--text);
-  }
+  .date-input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 13px; background: var(--card); box-shadow: var(--shadow); color: var(--text); transition: border-color 0.15s; }
   .date-input:focus { outline: none; border-color: var(--blue); }
+  /* FIX #3b: date validation visual */
+  .date-input.invalid { border-color: var(--rose); background: var(--rose-tint); }
   .date-sep { color: var(--muted); font-size: 14px; }
 
-  .loading-card {
-    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 80px 32px; text-align: center; box-shadow: var(--shadow);
-  }
-  .spinner {
-    width: 48px; height: 48px; margin: 0 auto 20px;
-    border: 4px solid var(--blue-tint); border-top-color: var(--blue);
-    border-radius: 50%; animation: spin 0.8s linear infinite;
-  }
+  .loading-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 80px 32px; text-align: center; box-shadow: var(--shadow); }
+  .spinner { width: 48px; height: 48px; margin: 0 auto 20px; border: 4px solid var(--blue-tint); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading-card h3 { font-size: 18px; font-weight: 700; margin: 0 0 6px; }
   .loading-card p { color: var(--muted); margin: 0; font-size: 14px; }
 
-  .error-card {
-    background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--rose);
-    border-radius: var(--radius); padding: 32px; box-shadow: var(--shadow); text-align: center;
-  }
+  .error-card { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--rose); border-radius: var(--radius); padding: 32px; box-shadow: var(--shadow); text-align: center; }
   .error-card h3 { color: var(--rose); margin: 0 0 8px; font-weight: 700; }
-  .error-card .err-detail {
-    color: var(--muted); font-size: 13px; margin: 8px 0 24px; word-break: break-word;
-    background: #fff1f2; padding: 10px 14px; border-radius: 8px;
-    display: inline-block; text-align: left; font-family: 'Courier New', monospace;
-  }
+  .error-card .err-detail { color: var(--muted); font-size: 13px; margin: 8px 0 24px; word-break: break-word; background: #fff1f2; padding: 10px 14px; border-radius: 8px; display: inline-block; text-align: left; font-family: 'Courier New', monospace; }
   .error-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
-  .btn {
-    padding: 10px 22px; border-radius: 10px; font-family: inherit; font-weight: 600;
-    font-size: 14px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s ease;
-  }
+  .btn { padding: 10px 22px; border-radius: 10px; font-family: inherit; font-weight: 600; font-size: 14px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s ease; }
   .btn-primary { background: var(--blue); color: #fff; box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25); }
   .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35); }
   .btn-secondary { background: var(--card); color: var(--text); border-color: var(--border); }
@@ -207,72 +117,37 @@
   .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
   .top-bar-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .top-bar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .record-pill {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--card); border: 1px solid var(--border);
-    padding: 8px 16px; border-radius: 999px; font-size: 13px;
-    font-weight: 500; color: var(--text); box-shadow: var(--shadow);
-  }
-  .live-dot {
-    width: 8px; height: 8px; border-radius: 50%; background: var(--green);
-    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.6); animation: pulse 2s infinite;
-  }
-  @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.6); }
-    70% { box-shadow: 0 0 0 8px rgba(5, 150, 105, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
-  }
+  .record-pill { display: inline-flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--border); padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--text); box-shadow: var(--shadow); }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.6); animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.6); } 70% { box-shadow: 0 0 0 8px rgba(5, 150, 105, 0); } 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); } }
   .record-count { color: var(--blue); font-weight: 700; }
-  .source-pill {
-    background: var(--card); border: 1px solid var(--border);
-    padding: 6px 12px; border-radius: 999px;
-    font-size: 11px; color: var(--muted); box-shadow: var(--shadow);
-  }
-  .user-pill {
-    background: var(--card); border: 1px solid var(--border);
-    padding: 6px 12px; border-radius: 999px;
-    font-size: 12px; color: var(--text); box-shadow: var(--shadow);
-    display: inline-flex; align-items: center; gap: 6px;
-  }
-  .user-pill::before {
-    content: ""; width: 8px; height: 8px; border-radius: 50%;
-    background: var(--blue);
-  }
-  .reset-btn, .logout-btn {
-    background: var(--card); border: 1px solid var(--border);
-    padding: 8px 18px; border-radius: 10px; font-family: inherit;
-    font-weight: 500; font-size: 13px; cursor: pointer; color: var(--text);
-    transition: all 0.2s ease; box-shadow: var(--shadow);
-  }
+  /* FIX #3d: make source-pill bigger and more visible */
+  .source-pill { background: var(--card); border: 1px solid var(--border); padding: 8px 14px; border-radius: 999px; font-size: 12px; color: var(--text); box-shadow: var(--shadow); display: inline-flex; align-items: center; gap: 6px; }
+  .source-pill .source-icon { color: var(--muted); }
+  .source-pill .source-time { color: var(--muted); }
+  .user-pill { background: var(--card); border: 1px solid var(--border); padding: 6px 12px; border-radius: 999px; font-size: 12px; color: var(--text); box-shadow: var(--shadow); display: inline-flex; align-items: center; gap: 6px; }
+  .user-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--blue); }
+  .reset-btn, .logout-btn { background: var(--card); border: 1px solid var(--border); padding: 8px 18px; border-radius: 10px; font-family: inherit; font-weight: 500; font-size: 13px; cursor: pointer; color: var(--text); transition: all 0.2s ease; box-shadow: var(--shadow); }
   .reset-btn:hover { border-color: var(--blue); color: var(--blue); transform: translateY(-1px); }
   .logout-btn:hover { border-color: var(--rose); color: var(--rose); transform: translateY(-1px); }
 
-  .warn-banner {
-    background: var(--amber-tint); border: 1px solid #fde68a; color: #92400e;
-    padding: 10px 16px; border-radius: 12px; font-size: 13px;
-    margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
-  }
+  .warn-banner { background: var(--amber-tint); border: 1px solid #fde68a; color: #92400e; padding: 10px 16px; border-radius: 12px; font-size: 13px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .warn-banner.error { background: var(--rose-tint); border-color: #fecdd3; color: #9f1239; }
   .warn-banner svg { width: 18px; height: 18px; flex-shrink: 0; }
 
   .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 24px; }
-  .kpi {
-    background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--blue);
-    border-radius: var(--radius); padding: 22px 24px; box-shadow: var(--shadow);
-    transition: all 0.25s ease; display: flex; align-items: center; gap: 16px;
-  }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--blue); border-radius: var(--radius); padding: 22px 24px; box-shadow: var(--shadow); transition: all 0.25s ease; display: flex; align-items: center; gap: 16px; }
   .kpi:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
   .kpi.blue { border-left-color: var(--blue); }
   .kpi.teal { border-left-color: var(--teal); }
   .kpi.green { border-left-color: var(--green); }
   .kpi.amber { border-left-color: var(--amber); }
-
   .kpi-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .kpi-icon svg { width: 22px; height: 22px; }
   .kpi.blue .kpi-icon { background: var(--blue-tint); color: var(--blue); }
   .kpi.teal .kpi-icon { background: var(--teal-tint); color: var(--teal); }
   .kpi.green .kpi-icon { background: var(--green-tint); color: var(--green); }
   .kpi.amber .kpi-icon { background: var(--amber-tint); color: var(--amber); }
-
   .kpi-label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
   .kpi-value { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; color: var(--text); }
   .kpi-value.muted { color: var(--muted); font-size: 22px; }
@@ -281,60 +156,57 @@
   .row.cols-2 { grid-template-columns: 1fr 1fr; }
   .row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
 
-  .chart-card {
-    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 22px 24px; box-shadow: var(--shadow); transition: all 0.25s ease;
-  }
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 24px; box-shadow: var(--shadow); transition: all 0.25s ease; }
+  .chart-card.dim { opacity: 0.92; }
   .chart-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
   .chart-title { font-size: 15px; font-weight: 700; margin: 0; color: var(--text); }
   .chart-sub { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+  .chart-sub.warn { color: var(--amber); font-weight: 500; }
   .chart { width: 100%; height: 320px; }
   .chart.tall { height: 360px; }
-  .chart.donut-sm { height: 240px; }
+  .chart.donut-sm { height: 280px; }
 
   .chart-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
-  .drill-back-btn {
-    display: none; font-size: 11px; padding: 3px 10px;
-    border: 1px solid var(--border); border-radius: 6px;
-    background: var(--card); color: var(--blue); cursor: pointer;
-    font-family: inherit; font-weight: 500; transition: all 0.15s;
-  }
+  .drill-back-btn { display: none; font-size: 11px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--blue); cursor: pointer; font-family: inherit; font-weight: 500; transition: all 0.15s; }
   .drill-back-btn:hover { border-color: var(--blue); background: var(--blue-tint); }
   .drill-back-btn.active { display: inline-block; }
 
-  .no-data {
-    height: 100%; display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    color: var(--muted); font-size: 13px; text-align: center; padding: 20px;
-  }
+  .no-data { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; text-align: center; padding: 20px; }
+  /* FIX #6: pretty Not Available state */
+  .not-available { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; opacity: 0.85; }
+  .not-available .na-icon { font-size: 32px; margin-bottom: 8px; }
+  .not-available .na-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .not-available .na-text { font-size: 11px; color: var(--muted); max-width: 260px; line-height: 1.5; }
 
-  .footer {
-    margin-top: 48px; padding: 24px 0 12px; text-align: center;
-    color: var(--muted); font-size: 13px; border-top: 1px solid var(--border);
-  }
+  .footer { margin-top: 48px; padding: 24px 0 12px; text-align: center; color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); }
   .footer strong { color: var(--text); font-weight: 700; }
 
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   .fade-up { opacity: 0; animation: fadeUp 0.6s ease forwards; }
 
-  @media (max-width: 1024px) {
+  /* FIX #3e: better responsive breakpoints */
+  @media (max-width: 1280px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 1024px) {
     .row.cols-2, .row.cols-3 { grid-template-columns: 1fr; }
+    .container { padding: 32px 24px 24px; }
+    .title { font-size: 36px; }
   }
   @media (max-width: 640px) {
-    .container { padding: 32px 16px 24px; }
-    .title { font-size: 32px; }
+    .container { padding: 24px 16px 24px; }
+    .title { font-size: 28px; }
     .kpi-grid { grid-template-columns: 1fr; }
     .login-card { padding: 28px 24px; }
+    .top-bar-left, .top-bar-right { width: 100%; }
+    .filters-bar { flex-direction: column; align-items: stretch; }
+    .filter-group { flex-wrap: wrap; }
   }
 </style>
 </head>
 <body>
 
-<!-- ===== LOGIN OVERLAY ===== -->
+<!-- ===== LOGIN OVERLAY (FIX #3a: no Sign Up) ===== -->
 <div id="login-overlay">
   <div class="login-card">
     <span class="login-eyebrow">CLF Trading · Secure Access</span>
@@ -354,9 +226,9 @@
     </div>
 
     <button class="login-btn" id="login-submit" type="button">Sign In</button>
-    <button class="toggle-mode" id="login-toggle" type="button">Need an account? Sign up</button>
 
     <div class="login-footer">
+      Need an account? Contact your administrator.<br>
       Secured by Supabase Auth · session stored locally
     </div>
   </div>
@@ -384,6 +256,9 @@
           <div class="ms-actions">
             <button class="ms-btn" id="ms-all">All</button>
             <button class="ms-btn" id="ms-clear">Clear</button>
+          </div>
+          <div class="ms-search-wrap">
+            <input type="text" class="ms-search" id="ms-search" placeholder="Search divisions..." />
           </div>
           <div class="ms-list" id="ms-list"></div>
         </div>
@@ -425,7 +300,10 @@
           <span class="live-dot"></span>
           <span><span class="record-count" id="record-count">0</span> records loaded</span>
         </div>
-        <div class="source-pill" id="source-pill">Source: —</div>
+        <div class="source-pill" id="source-pill">
+          <svg class="source-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="source-label">Source: —</span>
+        </div>
       </div>
       <div class="top-bar-right">
         <div class="user-pill" id="user-pill">—</div>
@@ -445,40 +323,19 @@
 
     <div class="kpi-grid">
       <div class="kpi blue fade-up" style="animation-delay: 0.1s;">
-        <div class="kpi-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="1" x2="12" y2="23"></line>
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-          </svg>
-        </div>
+        <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
         <div><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="kpi-revenue">RM 0</div></div>
       </div>
       <div class="kpi teal fade-up" style="animation-delay: 0.15s;">
-        <div class="kpi-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
-            <polyline points="16 7 22 7 22 13"></polyline>
-          </svg>
-        </div>
+        <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
         <div><div class="kpi-label">Total Profit</div><div class="kpi-value" id="kpi-profit">RM 0</div></div>
       </div>
       <div class="kpi green fade-up" style="animation-delay: 0.2s;">
-        <div class="kpi-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <path d="M16 10a4 4 0 0 1-8 0"></path>
-          </svg>
-        </div>
+        <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
         <div><div class="kpi-label">Units Sold</div><div class="kpi-value" id="kpi-units">0</div></div>
       </div>
       <div class="kpi amber fade-up" style="animation-delay: 0.25s;">
-        <div class="kpi-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12 16 14"></polyline>
-          </svg>
-        </div>
+        <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
         <div><div class="kpi-label">Avg. Order Value</div><div class="kpi-value" id="kpi-aov">RM 0</div></div>
       </div>
     </div>
@@ -505,13 +362,15 @@
         <p class="chart-sub">Bubble size = sales · color intensity scales with volume</p>
         <div class="chart tall" id="chart-map"></div>
       </div>
-      <div class="chart-card fade-up" style="animation-delay: 0.45s;">
-        <h3 class="chart-title">Top 10 Products</h3>
-        <p class="chart-sub">Best sellers by total revenue</p>
+      <!-- FIX #5: Top Products with smart fallback subtitle -->
+      <div class="chart-card fade-up" id="card-products" style="animation-delay: 0.45s;">
+        <h3 class="chart-title" id="chart-products-title">Top 10 Products</h3>
+        <p class="chart-sub" id="chart-products-sub">Best sellers by total revenue</p>
         <div class="chart tall" id="chart-products"></div>
       </div>
     </div>
 
+    <!-- FIX #4a: Route donuts → horizontal bars; FIX #6: Profit Share = Not Available -->
     <div class="row cols-3">
       <div class="chart-card fade-up" style="animation-delay: 0.5s;">
         <h3 class="chart-title">Profit Share by Delivery Route</h3>
@@ -519,13 +378,13 @@
         <div class="chart donut-sm" id="chart-ship-profit"></div>
       </div>
       <div class="chart-card fade-up" style="animation-delay: 0.55s;">
-        <h3 class="chart-title">Volume Share by Delivery Route</h3>
-        <p class="chart-sub">Units shipped per route</p>
+        <h3 class="chart-title">Top 15 Routes by Volume</h3>
+        <p class="chart-sub">Units shipped per route (top 15)</p>
         <div class="chart donut-sm" id="chart-ship-volume"></div>
       </div>
       <div class="chart-card fade-up" style="animation-delay: 0.6s;">
-        <h3 class="chart-title">Order Count by Delivery Route</h3>
-        <p class="chart-sub">Number of orders per route</p>
+        <h3 class="chart-title">Top 15 Routes by Order Count</h3>
+        <p class="chart-sub">Number of orders per route (top 15)</p>
         <div class="chart donut-sm" id="chart-ship-orders"></div>
       </div>
     </div>
@@ -541,7 +400,7 @@
 
 <script>
   // ====================================================================
-  // SUPABASE CONFIG (anon key only — service_role MUST NOT be embedded)
+  // CONFIG
   // ====================================================================
   const SUPABASE_URL = 'https://wgwupdjiugmdgxprctse.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indnd3VwZGppdWdtZGd4cHJjdHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4NTI0MzEsImV4cCI6MjA5MzQyODQzMX0.iuNuuwrYRmIBVctdeEXjt4i7GlqxQ5v2fe4Zl4ZJ1yA';
@@ -549,9 +408,6 @@
   const SESSION_KEY = 'clf-dash-session';
   const FETCH_TIMEOUT_MS = 30000;
 
-  // ====================================================================
-  // Theme tokens
-  // ====================================================================
   const COLORS = {
     blue: '#2563eb', teal: '#0891b2', green: '#059669',
     amber: '#d97706', violet: '#7c3aed', rose: '#e11d48',
@@ -568,7 +424,6 @@
   });
 
   const SEGMENT_COLORS = [COLORS.blue, COLORS.teal, COLORS.violet, COLORS.amber, COLORS.green, COLORS.rose];
-  const ROUTE_COLORS   = [COLORS.blue, COLORS.teal, COLORS.green, COLORS.amber, COLORS.violet, COLORS.rose];
 
   const MY_STATES = {
     'Johor':{lat:1.93,lon:103.40},'Kedah':{lat:6.12,lon:100.37},'Kelantan':{lat:5.30,lon:102.00},
@@ -604,6 +459,17 @@
     return m ? m[1] + '-' : 'Other';
   }
 
+  // FIX #7: Detect system salesperson entries (WAREHOUSE *, etc.)
+  function isSystemRep(name) {
+    if (!name) return true;
+    const n = name.toUpperCase().trim();
+    if (n.includes('*')) return true;
+    if (n.includes('WAREHOUSE')) return true;
+    if (n.includes('SYSTEM')) return true;
+    if (n === 'DIRECT' || n === 'COUNTER' || n === 'HOUSE') return true;
+    return false;
+  }
+
   const MAB = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function num(v) { const x = Number(v); return isFinite(x) ? x : 0; }
   function fm(v) {
@@ -620,6 +486,25 @@
     const a = parseInt(c1.slice(1),16), b = parseInt(c2.slice(1),16);
     return '#'+((1<<24)+(Math.round(((a>>16&255)+((b>>16&255)-(a>>16&255))*t))<<16)+(Math.round(((a>>8&255)+((b>>8&255)-(a>>8&255))*t))<<8)+Math.round((a&255)+((b&255)-(a&255))*t)).toString(16).slice(1);
   }
+  // FIX #3d: relative time helper
+  function timeAgo(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (sec < 60) return 'just now';
+    if (sec < 3600) return Math.floor(sec/60) + ' min ago';
+    if (sec < 86400) return Math.floor(sec/3600) + ' hours ago';
+    return Math.floor(sec/86400) + ' days ago';
+  }
+
+  // FIX #4b: clear container before each plot (removes leftover innerHTML)
+  function clearChart(target) {
+    if (!target) return;
+    try { Plotly.purge(target); } catch (e) {}
+    target.innerHTML = '';
+  }
+
   function gaugeTicks(maxVal) {
     const step = maxVal / 4;
     const vals = [0, step, step*2, step*3, maxVal];
@@ -630,30 +515,25 @@
   // DOM refs
   // ====================================================================
   const el = id => document.getElementById(id);
-  const loginOverlay = el('login-overlay');
-  const dashboardContainer = el('dashboard-container');
-  const loadingScreen = el('loading-screen');
-  const errorScreen = el('error-screen');
-  const dashboard = el('dashboard');
-  const errDetail = el('err-detail');
-  const sourcePill = el('source-pill');
-  const userPill = el('user-pill');
-  const warnBanner = el('warn-banner');
-  const warnText = el('warn-text');
+  const loginOverlay = el('login-overlay'),
+        dashboardContainer = el('dashboard-container'),
+        loadingScreen = el('loading-screen'),
+        errorScreen = el('error-screen'),
+        dashboard = el('dashboard'),
+        errDetail = el('err-detail'),
+        warnBanner = el('warn-banner'),
+        warnText = el('warn-text');
   el('cur-year').textContent = new Date().getFullYear();
 
   // ====================================================================
-  // Session management
+  // Session
   // ====================================================================
-  function getSession() {
-    try { return JSON.parse(localStorage.getItem(SESSION_KEY)); }
-    catch { return null; }
-  }
+  function getSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; } }
   function setSession(s) { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
   function clearSession() { localStorage.removeItem(SESSION_KEY); }
 
   // ====================================================================
-  // Auth API calls (raw fetch, no SDK)
+  // Auth API
   // ====================================================================
   async function authSignIn(email, password) {
     const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
@@ -665,18 +545,6 @@
     if (!r.ok) throw new Error(d.error_description || d.error || d.msg || ('HTTP ' + r.status));
     return d;
   }
-
-  async function authSignUp(email, password) {
-    const r = await fetch(SUPABASE_URL + '/auth/v1/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email, password })
-    });
-    const d = await r.json();
-    if (!r.ok || d.error || d.msg) throw new Error(d.error_description || d.msg || d.error || ('HTTP ' + r.status));
-    return d;
-  }
-
   async function authRefresh(refreshToken) {
     const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
       method: 'POST',
@@ -686,36 +554,27 @@
     if (!r.ok) throw new Error('Token refresh failed');
     return await r.json();
   }
-
   async function fetchData(accessToken) {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
     try {
       const r = await fetch(DATA_OBJECT_URL, {
-        headers: {
-          'Authorization': 'Bearer ' + accessToken,
-          'apikey': SUPABASE_ANON_KEY
-        },
-        cache: 'no-store',
-        signal: ctrl.signal
+        headers: { 'Authorization': 'Bearer ' + accessToken, 'apikey': SUPABASE_ANON_KEY },
+        cache: 'no-store', signal: ctrl.signal
       });
       if (r.status === 401) { const err = new Error('Unauthorized'); err.status = 401; throw err; }
       if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + (await r.text()).slice(0, 200));
       return await r.json();
-    } finally {
-      clearTimeout(t);
-    }
+    } finally { clearTimeout(t); }
   }
 
   // ====================================================================
-  // Login UI
+  // Login UI (FIX #3a: no Sign Up; FIX #3g: session expired msg)
   // ====================================================================
-  let signUpMode = false;
   const loginMsg = el('login-msg');
   const loginEmail = el('login-email');
   const loginPassword = el('login-password');
   const loginSubmit = el('login-submit');
-  const loginToggle = el('login-toggle');
 
   function showLoginMsg(text, type) {
     loginMsg.textContent = text;
@@ -726,78 +585,56 @@
     loginMsg.className = 'login-msg';
   }
 
-  loginToggle.onclick = () => {
-    signUpMode = !signUpMode;
-    loginSubmit.textContent = signUpMode ? 'Sign Up' : 'Sign In';
-    loginToggle.textContent = signUpMode ? 'Already have an account? Sign in' : 'Need an account? Sign up';
-    clearLoginMsg();
-  };
-
   loginSubmit.onclick = async () => {
     const email = loginEmail.value.trim();
     const password = loginPassword.value;
     if (!email || !password) { showLoginMsg('Please enter both email and password.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showLoginMsg('Please enter a valid email address.'); return; }
     clearLoginMsg();
     loginSubmit.disabled = true;
     const originalText = loginSubmit.textContent;
-    loginSubmit.textContent = 'Processing…';
+    loginSubmit.textContent = 'Signing in…';
     try {
-      if (signUpMode) {
-        await authSignUp(email, password);
-        showLoginMsg('Account created. Check your email to confirm, then sign in.', 'ok');
-        signUpMode = false;
-        loginSubmit.textContent = 'Sign In';
-        loginToggle.textContent = 'Need an account? Sign up';
-      } else {
-        const session = await authSignIn(email, password);
-        setSession(session);
-        showDashboardForSession(session);
-      }
+      const session = await authSignIn(email, password);
+      setSession(session);
+      showDashboardForSession(session);
     } catch (err) {
       showLoginMsg(err.message || 'Authentication failed.');
     } finally {
       loginSubmit.disabled = false;
-      if (!signUpMode) loginSubmit.textContent = originalText;
+      loginSubmit.textContent = originalText;
     }
   };
 
-  // Allow Enter key to submit
   [loginEmail, loginPassword].forEach(input => {
     input.addEventListener('keydown', e => { if (e.key === 'Enter') loginSubmit.click(); });
   });
 
-  function showLogin(message) {
+  function showLogin(message, type) {
     loginOverlay.style.display = 'flex';
     dashboardContainer.style.display = 'none';
-    if (message) showLoginMsg(message);
+    if (message) showLoginMsg(message, type || 'error');
     else clearLoginMsg();
   }
-
   function showDashboardForSession(session) {
     loginOverlay.style.display = 'none';
     dashboardContainer.style.display = '';
-    userPill.textContent = (session.user && session.user.email) || session.email || 'authenticated';
+    el('user-pill').textContent = (session.user && session.user.email) || session.email || 'authenticated';
     loadData();
   }
 
-  // ====================================================================
-  // Dashboard logout / reload
-  // ====================================================================
   function signOut() {
     clearSession();
     dashboard.classList.remove('active');
     loadingScreen.style.display = 'none';
     errorScreen.style.display = 'none';
-    showLogin();
+    showLogin('You have been signed out.', 'info');
   }
   el('logout-btn').onclick = signOut;
   el('signout-btn').onclick = signOut;
   el('retry-btn').onclick = () => loadData();
   el('reload-btn').onclick = () => loadData();
 
-  // ====================================================================
-  // Data loader (handles token refresh on 401)
-  // ====================================================================
   function showLoad() {
     loadingScreen.style.display = '';
     errorScreen.style.display = 'none';
@@ -813,8 +650,10 @@
   async function loadData() {
     showLoad();
     let session = getSession();
-    if (!session || !session.access_token) { showLogin('Your session has expired. Please sign in again.'); return; }
-
+    if (!session || !session.access_token) {
+      showLogin('Your session has expired. Please sign in again.', 'info');
+      return;
+    }
     try {
       const data = await fetchData(session.access_token);
       renderDashboardData(data);
@@ -827,7 +666,7 @@
           renderDashboardData(data);
         } catch (refreshErr) {
           clearSession();
-          showLogin('Your session has expired. Please sign in again.');
+          showLogin('Your session has expired. Please sign in again.', 'info');
         }
       } else {
         showErr(err.message || String(err));
@@ -869,7 +708,10 @@
     _divisionGroupsCache = null;
     _divisionMonth = (d.monthly_info && d.monthly_info.current_month) || new Date().toISOString().slice(0, 7);
 
-    sourcePill.textContent = 'Source: Supabase · ' + (d._meta && d._meta.generated_at ? d._meta.generated_at.slice(0, 16).replace('T', ' ') : 'live');
+    // FIX #3d: bigger, friendlier source pill
+    const genTime = d._meta && d._meta.generated_at;
+    el('source-label').innerHTML = 'Updated ' + (genTime ? '<span class="source-time">' + timeAgo(genTime) + '</span>' : '—');
+
     warnBanner.style.display = 'none';
 
     const pe = el('kpi-profit');
@@ -878,37 +720,117 @@
 
     el('filters-bar').style.display = 'flex';
 
-    // Multi-select division
+    // ===== FIX #2: Hierarchical division multi-select =====
     let selectedDivs = new Set(allDivs);
-    const list = el('ms-list'); list.innerHTML = '';
+    const list = el('ms-list');
+    list.innerHTML = '';
+
+    // Group divisions by prefix
+    const divGroups = {};
     allDivs.forEach(div => {
-      const item = document.createElement('label'); item.className = 'ms-item';
-      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.value = div;
-      const nm = document.createElement('span'); nm.className = 'ms-item-name'; nm.textContent = div;
-      item.append(cb, nm);
-      item.onclick = e => { if (e.target !== cb) cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); };
-      cb.onchange = () => {
-        if (cb.checked) selectedDivs.add(div); else selectedDivs.delete(div);
-        updateLabel(); applyFilters();
-      };
-      list.append(item);
+      const prefix = getDivPrefix(div);
+      if (!divGroups[prefix]) divGroups[prefix] = [];
+      divGroups[prefix].push(div);
     });
+    const sortedPrefixes = Object.keys(divGroups).sort();
+
+    function updateGroupCheckboxState(groupCb, members) {
+      const checkedCount = members.filter(m => selectedDivs.has(m)).length;
+      if (checkedCount === 0) { groupCb.checked = false; groupCb.indeterminate = false; }
+      else if (checkedCount === members.length) { groupCb.checked = true; groupCb.indeterminate = false; }
+      else { groupCb.checked = false; groupCb.indeterminate = true; }
+    }
+
+    const groupRefs = [];
+    sortedPrefixes.forEach(prefix => {
+      const members = divGroups[prefix];
+      const groupEl = document.createElement('div'); groupEl.className = 'ms-group';
+
+      const header = document.createElement('div'); header.className = 'ms-group-header';
+      const arrow = document.createElement('span'); arrow.className = 'ms-group-arrow'; arrow.textContent = '▶';
+      const groupCb = document.createElement('input'); groupCb.type = 'checkbox'; groupCb.checked = true;
+      const name = document.createElement('span'); name.className = 'ms-group-name'; name.textContent = prefix;
+      const count = document.createElement('span'); count.className = 'ms-group-count'; count.textContent = '(' + members.length + ')';
+      header.append(arrow, groupCb, name, count);
+
+      const childrenEl = document.createElement('div'); childrenEl.className = 'ms-group-children';
+      const childCbs = [];
+      members.forEach(div => {
+        const item = document.createElement('label'); item.className = 'ms-item';
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.value = div;
+        const nm = document.createElement('span'); nm.className = 'ms-item-name'; nm.textContent = div;
+        item.append(cb, nm);
+        childrenEl.appendChild(item);
+        childCbs.push(cb);
+
+        cb.onchange = () => {
+          if (cb.checked) selectedDivs.add(div); else selectedDivs.delete(div);
+          updateGroupCheckboxState(groupCb, members);
+          updateLabel(); applyFilters();
+        };
+      });
+
+      groupEl.appendChild(header);
+      groupEl.appendChild(childrenEl);
+      list.appendChild(groupEl);
+
+      groupRefs.push({ prefix, groupEl, groupCb, childCbs, members });
+
+      // Expand / collapse on header click (but not on checkbox click)
+      header.addEventListener('click', e => {
+        if (e.target === groupCb) return;
+        groupEl.classList.toggle('open');
+      });
+
+      groupCb.addEventListener('click', e => {
+        e.stopPropagation();
+        const newState = groupCb.checked;
+        childCbs.forEach(c => {
+          c.checked = newState;
+          if (newState) selectedDivs.add(c.value); else selectedDivs.delete(c.value);
+        });
+        groupCb.indeterminate = false;
+        updateLabel(); applyFilters();
+      });
+    });
+
     function updateLabel() {
       const cnt = selectedDivs.size;
       el('ms-label').textContent = cnt === allDivs.length ? 'All Divisions' : cnt === 0 ? 'None' : cnt + ' divisions';
     }
+
     el('ms-trigger').onclick = () => el('ms-dropdown').classList.toggle('open');
     el('ms-all').onclick = () => {
-      list.querySelectorAll('input').forEach(c => c.checked = true);
-      selectedDivs = new Set(allDivs); updateLabel(); applyFilters(); el('ms-dropdown').classList.remove('open');
+      selectedDivs = new Set(allDivs);
+      groupRefs.forEach(g => { g.groupCb.checked = true; g.groupCb.indeterminate = false; g.childCbs.forEach(c => c.checked = true); });
+      updateLabel(); applyFilters();
     };
     el('ms-clear').onclick = () => {
-      list.querySelectorAll('input').forEach(c => c.checked = false);
-      selectedDivs = new Set(); updateLabel(); applyFilters(); el('ms-dropdown').classList.remove('open');
+      selectedDivs = new Set();
+      groupRefs.forEach(g => { g.groupCb.checked = false; g.groupCb.indeterminate = false; g.childCbs.forEach(c => c.checked = false); });
+      updateLabel(); applyFilters();
     };
+
+    // ===== FIX #3c: Search box =====
+    const searchInput = el('ms-search');
+    searchInput.value = '';
+    searchInput.oninput = () => {
+      const q = searchInput.value.toLowerCase().trim();
+      groupRefs.forEach(g => {
+        let anyVisible = false;
+        g.childCbs.forEach(cb => {
+          const visible = !q || cb.value.toLowerCase().includes(q);
+          cb.parentElement.style.display = visible ? '' : 'none';
+          if (visible) anyVisible = true;
+        });
+        g.groupEl.style.display = anyVisible ? '' : 'none';
+        if (q && anyVisible) g.groupEl.classList.add('open');
+      });
+    };
+
     attachDocClickOnce();
 
-    // Dates
+    // ===== Dates =====
     const today = new Date();
     const firstDate = daily.length > 0 ? daily[0].date : today.toISOString().slice(0, 10);
     el('date-from').value = firstDate;
@@ -916,7 +838,6 @@
     el('date-from').onchange = applyFilters;
     el('date-to').onchange   = applyFilters;
 
-    // Division back button
     el('chart-segment-back').onclick = () => {
       _divisionDrillPrefix = null;
       if (_divisionGroupsCache) renderDivisionGroupsDonut(_divisionGroupsCache);
@@ -925,6 +846,22 @@
     function applyFilters() {
       try {
         const from = el('date-from').value, to = el('date-to').value;
+
+        // FIX #3b: Date range validation
+        if (from && to && from > to) {
+          el('date-from').classList.add('invalid');
+          el('date-to').classList.add('invalid');
+          warnBanner.style.display = '';
+          warnBanner.classList.add('error');
+          warnText.textContent = 'Invalid date range: "from" date must be on or before "to" date';
+          return;
+        } else {
+          el('date-from').classList.remove('invalid');
+          el('date-to').classList.remove('invalid');
+          warnBanner.classList.remove('error');
+          warnBanner.style.display = 'none';
+        }
+
         const filtered = daily.filter(r => {
           if (!selectedDivs.has(r.division)) return false;
           if (from && r.date < from) return false;
@@ -939,10 +876,12 @@
           el('kpi-aov').textContent     = fm(0);
           const msg = '<div class="no-data">No data matches the current filters</div>';
           ['chart-trend','chart-segment','chart-map','chart-products',
-           'chart-ship-profit','chart-ship-volume','chart-ship-orders'].forEach(id => {
-            const e = el(id); if (e) { Plotly.purge(e); e.innerHTML = msg; }
+           'chart-ship-volume','chart-ship-orders'].forEach(id => {
+            const e = el(id); if (e) { clearChart(e); e.innerHTML = msg; }
           });
+          renderProfitNotAvailable();   // FIX #6 always shows
           resetDivisionChartHeader();
+          renderMtdInGauge(d.monthly_info || {}, 0);  // FIX #1
           return;
         }
 
@@ -954,6 +893,7 @@
         el('kpi-units').textContent    = fi(totU);
         el('kpi-aov').textContent      = totO ? fm(totR / totO) : 'RM —';
 
+        // Monthly trend
         const monthly = {};
         filtered.forEach(r => {
           const m = r.date.slice(0, 7);
@@ -967,6 +907,7 @@
 
         const allSelected = selectedDivs.size === allDivs.length;
 
+        // Map
         if (allSelected) {
           renderMap(d.state_sales || []);
         } else if (Array.isArray(d.division_state_sales) && d.division_state_sales.length) {
@@ -977,53 +918,105 @@
           });
           renderMap(Object.entries(st).map(([nm, s]) => ({ name: nm, sales: s })));
         } else {
-          Plotly.purge(el('chart-map'));
+          clearChart(el('chart-map'));
           el('chart-map').innerHTML = '<div class="no-data">Per-division state breakdown not available</div>';
         }
 
-        if (allSelected) {
-          renderProducts(d.top_products || []);
-        } else {
-          Plotly.purge(el('chart-products'));
-          el('chart-products').innerHTML = '<div class="no-data">Select "All Divisions" to view top products</div>';
-        }
+        // FIX #5: Top Products with smart fallback
+        renderTopProducts(d, selectedDivs, allSelected);
 
+        // Routes (volume + orders only, profit handled separately)
         if (allSelected) {
-          renderRoutes(d.route_stats || []);
+          renderRouteBars(d.route_stats || [], 'volume', 'volume', COLORS.teal, 'chart-ship-volume');
+          renderRouteBars(d.route_stats || [], 'orders', 'orders', COLORS.green, 'chart-ship-orders');
         } else if (Array.isArray(d.division_route_stats) && d.division_route_stats.length) {
           const rt = {};
           d.division_route_stats.filter(r => selectedDivs.has(r.division)).forEach(r => {
-            if (!rt[r.route]) rt[r.route] = { profit: 0, volume: 0, orders: 0 };
-            rt[r.route].profit += (r.profit !== undefined ? r.profit : r.sales) || 0;
+            if (!rt[r.route]) rt[r.route] = { sales: 0, volume: 0, orders: 0 };
+            rt[r.route].sales  += (r.sales !== undefined ? r.sales : r.profit) || 0;
             rt[r.route].volume += r.volume || 0;
             rt[r.route].orders += r.orders || 0;
           });
-          const rtArr = Object.entries(rt).map(([nm, v]) => ({ name: nm, ...v })).sort((a, b) => b.orders - a.orders);
-          renderRoutes(rtArr);
+          const rtArr = Object.entries(rt).map(([nm, v]) => ({ name: nm, profit: v.sales, ...v }));
+          renderRouteBars(rtArr, 'volume', 'volume', COLORS.teal, 'chart-ship-volume');
+          renderRouteBars(rtArr, 'orders', 'orders', COLORS.green, 'chart-ship-orders');
         } else {
-          ['chart-ship-profit','chart-ship-volume','chart-ship-orders'].forEach(id => {
-            Plotly.purge(el(id));
+          ['chart-ship-volume','chart-ship-orders'].forEach(id => {
+            clearChart(el(id));
             el(id).innerHTML = '<div class="no-data">Per-division route breakdown not available</div>';
           });
         }
+
+        // FIX #6: Profit Share always shows Not Available
+        renderProfitNotAvailable();
+
+        // FIX #1: MTD recalculated from filtered data
+        const mtdFromFilter = filtered
+          .filter(r => r.date.startsWith(_divisionMonth))
+          .reduce((s, r) => s + r.sales, 0);
+        renderMtdInGauge(d.monthly_info || {}, mtdFromFilter);
+
       } catch (e) {
         console.error('Filter error:', e);
       }
     }
 
     applyFilters();
-    renderTopReps(d.top_sales_reps || []);
-    renderMonthlyInfo(d.monthly_info || {});
+
+    // FIX #7: Top Sales Reps filtered to exclude system entries
+    renderTopReps(d.top_sales_reps || [], d._meta || {});
   }
 
   // ====================================================================
-  // Division — prefix groups + drill-down
+  // FIX #1: MTD gauge updates with filter
+  // ====================================================================
+  function renderMtdInGauge(mi, mtdValue) {
+    // Mount gauge container if not exists
+    let row = el('top-reps-row');
+    if (!row) {
+      // Will be created in renderTopReps; we'll render after that
+      return;
+    }
+    const target = el('chart-monthly');
+    if (!target) return;
+    clearChart(target);
+
+    const sub = el('monthly-progress-sub');
+    if (sub) {
+      const pct = mi.days_in_month ? (mi.day_of_month / mi.days_in_month * 100).toFixed(0) : 0;
+      sub.textContent = (mi.current_month || '—') + ' — Day ' + (mi.day_of_month || '?') +
+                        '/' + (mi.days_in_month || '?') + ' (' + pct + '% complete) · ' +
+                        (mi.days_remaining || '?') + ' days remaining · Filtered MTD: ' + fm(mtdValue);
+    }
+
+    const axisMax = mtdValue > 0 ? mtdValue * 1.5 : 1;
+    const ticks = gaugeTicks(axisMax);
+
+    Plotly.newPlot(target, [{
+      type: 'indicator', mode: 'gauge+number',
+      value: mtdValue,
+      number: { prefix: 'RM ', font: { size: 18 }, valueformat: ',.0f' },
+      title: {
+        text: 'Filtered MTD Sales<br><span style="font-size:14px;color:' + COLORS.muted + '">' + (mi.current_month || '') + '</span>',
+        font: { size: 14 }
+      },
+      gauge: {
+        axis: { range: [0, axisMax], tickvals: ticks.tickvals, ticktext: ticks.ticktext, tickfont: { color: COLORS.muted, size: 10 } },
+        bar: { color: COLORS.blue },
+        steps: [
+          { range: [0, mtdValue * 0.5],   color: '#eff6ff' },
+          { range: [mtdValue * 0.5, mtdValue], color: '#dbeafe' }
+        ],
+        threshold: { line: { color: COLORS.amber, width: 4 }, thickness: 0.75, value: mtdValue }
+      }
+    }], Object.assign(baseLayout(), { margin: { l: 40, r: 40, t: 60, b: 40 } }), PLOTLY_CONFIG);
+  }
+
+  // ====================================================================
+  // Division Group + drill-down
   // ====================================================================
   function renderDivisionsGroupedMTD(daily, currentMonth, selectedDivs) {
-    const mtdRows = daily.filter(r =>
-      r.date.startsWith(currentMonth) && selectedDivs.has(r.division)
-    );
-
+    const mtdRows = daily.filter(r => r.date.startsWith(currentMonth) && selectedDivs.has(r.division));
     const groups = {};
     mtdRows.forEach(r => {
       const prefix = getDivPrefix(r.division);
@@ -1040,33 +1033,27 @@
       renderDivisionGroupsDonut(groups);
     }
   }
-
   function resetDivisionChartHeader() {
     el('chart-segment-title').textContent = 'Revenue by Division Group (MTD)';
     el('chart-segment-sub').textContent = 'Grouped by prefix · ' + (_divisionMonth || '—') + ' · click a slice to drill into divisions';
     el('chart-segment-back').classList.remove('active');
   }
-
   function setDivisionDrillHeader(prefix, divisionCount) {
     el('chart-segment-title').innerHTML = 'Revenue by Division — <span style="color:var(--blue)">' + prefix + '</span>';
     el('chart-segment-sub').textContent = divisionCount + ' divisions in ' + prefix + ' · ' + (_divisionMonth || '—') + ' · sorted high to low';
     el('chart-segment-back').classList.add('active');
   }
-
   function renderDivisionGroupsDonut(groups) {
     resetDivisionChartHeader();
     const target = el('chart-segment');
-    Plotly.purge(target);
-
+    clearChart(target);
     const entries = Object.entries(groups).sort((a, b) => b[1].sales - a[1].sales);
     if (!entries.length) {
       target.innerHTML = '<div class="no-data">No MTD data for ' + (_divisionMonth || 'current month') + '</div>';
       return;
     }
-
     const labels = entries.map(e => e[0]);
     const values = entries.map(e => e[1].sales);
-
     Plotly.newPlot(target, [{
       labels, values, type: 'pie', hole: 0.58,
       marker: { colors: labels.map((_, i) => SEGMENT_COLORS[i % SEGMENT_COLORS.length]), line: { color: '#fff', width: 2 } },
@@ -1074,11 +1061,9 @@
       textfont: { color: '#fff', size: 13, family: PLOTLY_FONT.family },
       hovertemplate: '<b>%{label}</b><br>MTD Revenue: RM %{value:,.0f}<br>Share: %{percent}<br><i>Click to drill into divisions</i><extra></extra>'
     }], Object.assign(baseLayout(), {
-      margin: { l: 10, r: 10, t: 10, b: 10 },
-      showlegend: true,
+      margin: { l: 10, r: 10, t: 10, b: 10 }, showlegend: true,
       legend: { orientation: 'h', y: -0.05, x: 0.5, xanchor: 'center', font: { size: 11 } }
     }), PLOTLY_CONFIG);
-
     target.on('plotly_click', (eventData) => {
       const prefix = eventData.points[0].label;
       const grp = _divisionGroupsCache && _divisionGroupsCache[prefix];
@@ -1088,25 +1073,20 @@
       }
     });
   }
-
   function renderDivisionDrillView(prefix, groupData) {
     const divCount = Object.keys(groupData.divisions).length;
     setDivisionDrillHeader(prefix, divCount);
-
     const target = el('chart-segment');
-    Plotly.purge(target);
-
+    clearChart(target);
     const sorted = Object.entries(groupData.divisions).sort((a, b) => b[1] - a[1]);
     if (!sorted.length) {
       target.innerHTML = '<div class="no-data">No divisions in ' + prefix + ' for this period</div>';
       return;
     }
-
     const names  = sorted.map(d => d[0]).reverse();
     const values = sorted.map(d => d[1]).reverse();
     const len = names.length;
     const colors = names.map((_, i) => lerp(COLORS.blue, COLORS.teal, len > 1 ? i / (len - 1) : 0));
-
     Plotly.newPlot(target, [{
       x: values, y: names, type: 'bar', orientation: 'h',
       marker: { color: colors },
@@ -1125,13 +1105,11 @@
   // ====================================================================
   function renderTrend(mt, hasProfit) {
     const target = el('chart-trend');
-    Plotly.purge(target);
+    clearChart(target);
     if (!mt || !mt.length) { target.innerHTML = '<div class="no-data">No trend data</div>'; return; }
-
     const labels = mt.map(r => fmM(r.month));
     const sales  = mt.map(r => r.sales);
     const profit = hasProfit ? mt.map(r => r.profit || 0) : [];
-
     const traces = [{
       x: labels, y: sales, name: 'Sales', type: 'scatter', mode: 'lines',
       line: { color: COLORS.blue, width: 2.5, shape: 'spline', smoothing: 1 },
@@ -1144,7 +1122,6 @@
       fill: 'tozeroy', fillcolor: 'rgba(5,150,105,0.12)',
       hovertemplate: '<b>%{x}</b><br>Profit: RM %{y:,.0f}<extra></extra>'
     });
-
     Plotly.newPlot(target, traces, Object.assign(baseLayout(), {
       legend: { orientation: 'h', y: 1.12, x: 0, font: { size: 12 } },
       margin: { l: 60, r: 20, t: 30, b: 50 },
@@ -1155,17 +1132,13 @@
 
   function renderMap(ss) {
     const target = el('chart-map');
-    Plotly.purge(target);
+    clearChart(target);
     const states = Object.keys(MY_STATES);
-    const vals = states.map(s => {
-      const m = ss.find(r => normState(r.name) === s);
-      return m ? m.sales : 0;
-    });
+    const vals = states.map(s => { const m = ss.find(r => normState(r.name) === s); return m ? m.sales : 0; });
     const maxV = Math.max(...vals, 1);
     Plotly.newPlot(target, [{
       type: 'scattergeo',
-      lat: states.map(s => MY_STATES[s].lat),
-      lon: states.map(s => MY_STATES[s].lon),
+      lat: states.map(s => MY_STATES[s].lat), lon: states.map(s => MY_STATES[s].lon),
       text: states, customdata: vals, mode: 'markers',
       marker: {
         size: vals.map(v => v > 0 ? Math.max(10, 12 + (v / maxV) * 40) : 6),
@@ -1186,10 +1159,46 @@
     }), PLOTLY_CONFIG);
   }
 
+  // FIX #5: Top Products with smart fallback
+  function renderTopProducts(d, selectedDivs, allSelected) {
+    const card = el('card-products');
+    const title = el('chart-products-title');
+    const sub = el('chart-products-sub');
+    card.classList.remove('dim');
+    sub.classList.remove('warn');
+
+    if (allSelected) {
+      title.textContent = 'Top 10 Products';
+      sub.textContent = 'Best sellers by total revenue (all divisions)';
+      renderProducts(d.top_products || []);
+    } else if (Array.isArray(d.division_top_products) && d.division_top_products.length) {
+      // Backend provides per-division product breakdown — filter properly
+      const prodMap = {};
+      d.division_top_products.filter(r => selectedDivs.has(r.division)).forEach(r => {
+        const k = r.product;
+        if (!prodMap[k]) prodMap[k] = { sales: 0, quantity: 0 };
+        prodMap[k].sales += num(r.sales);
+        prodMap[k].quantity += num(r.quantity);
+      });
+      const arr = Object.entries(prodMap).map(([nm, v]) => ({ name: nm, ...v }))
+        .sort((a, b) => b.sales - a.sales).slice(0, 10);
+      title.textContent = 'Top 10 Products';
+      sub.textContent = 'Best sellers in selected divisions';
+      renderProducts(arr);
+    } else {
+      // No per-division data — show global with clear warning
+      title.textContent = 'Top 10 Products (all divisions)';
+      sub.innerHTML = '<span style="color:var(--amber)">⚠ Filter not applied</span> · per-division data not yet provided by backend (see B8)';
+      sub.classList.add('warn');
+      card.classList.add('dim');
+      renderProducts(d.top_products || []);
+    }
+  }
+
   function renderProducts(tp) {
     const target = el('chart-products');
-    Plotly.purge(target);
-    if (!tp.length) { target.innerHTML = '<div class="no-data">No product data</div>'; return; }
+    clearChart(target);
+    if (!tp || !tp.length) { target.innerHTML = '<div class="no-data">No product data</div>'; return; }
     const top10 = tp.slice(0, 10);
     const names = top10.map(r => r.name).reverse();
     const vals  = top10.map(r => r.sales).reverse();
@@ -1210,53 +1219,70 @@
     }), PLOTLY_CONFIG);
   }
 
-  function renderRoutes(rs) {
-    if (!rs || !rs.length) {
-      ['chart-ship-profit','chart-ship-volume','chart-ship-orders'].forEach(id => {
-        Plotly.purge(el(id));
-        el(id).innerHTML = '<div class="no-data">No route data</div>';
-      });
-      return;
-    }
-    const labels = rs.map(r => r.name);
-    const colors = labels.map((_, i) => ROUTE_COLORS[i % ROUTE_COLORS.length]);
-
-    function draw(id, key, fmt, fallbackMsg) {
-      const target = el(id);
-      Plotly.purge(target);
-      const vals = rs.map(r => r[key] || 0);
-      const sum  = vals.reduce((a, b) => a + b, 0);
-      if (!sum) { target.innerHTML = '<div class="no-data">' + fallbackMsg + '</div>'; return; }
-      Plotly.newPlot(target, [{
-        labels, values: vals, type: 'pie', hole: 0.58,
-        marker: { colors, line: { color: '#fff', width: 2 } },
-        textinfo: 'percent', textfont: { color: '#fff', size: 12, family: PLOTLY_FONT.family },
-        hovertemplate: '<b>%{label}</b><br>' + fmt + '<br>Share: %{percent}<extra></extra>'
-      }], Object.assign(baseLayout(), {
-        margin: { l: 10, r: 10, t: 10, b: 10 },
-        showlegend: true,
-        legend: { orientation: 'h', y: -0.1, x: 0.5, xanchor: 'center', font: { size: 10 } }
-      }), PLOTLY_CONFIG);
-    }
-    draw('chart-ship-profit', 'profit', 'Profit: RM %{value:,.0f}', 'No profit data');
-    draw('chart-ship-volume', 'volume', 'Units: %{value:,.0f}',     'No volume data');
-    draw('chart-ship-orders', 'orders', 'Orders: %{value:,.0f}',    'No order data');
+  // FIX #4a: Route donut → horizontal bar (Top 15)
+  function renderRouteBars(routes, key, label, color, chartId) {
+    const target = el(chartId);
+    clearChart(target);
+    if (!routes || !routes.length) { target.innerHTML = '<div class="no-data">No route data</div>'; return; }
+    const top15 = routes
+      .filter(r => r[key])
+      .sort((a, b) => b[key] - a[key])
+      .slice(0, 15);
+    if (!top15.length) { target.innerHTML = '<div class="no-data">No route data</div>'; return; }
+    const names = top15.map(r => r.name).reverse();
+    const vals  = top15.map(r => r[key]).reverse();
+    const len = names.length;
+    const colors = names.map((_, i) => lerp(color, COLORS.amber, len > 1 ? i / (len - 1) * 0.4 : 0));
+    const isMoney = false; // volume/orders are counts, not money
+    Plotly.newPlot(target, [{
+      x: vals, y: names, type: 'bar', orientation: 'h',
+      marker: { color: colors },
+      text: vals.map(v => v.toLocaleString()), textposition: 'outside',
+      textfont: { family: PLOTLY_FONT.family, size: 10, color: COLORS.text },
+      hovertemplate: '<b>%{y}</b><br>' + label + ': %{x:,.0f}<extra></extra>'
+    }], Object.assign(baseLayout(), {
+      margin: { l: 90, r: 60, t: 10, b: 30 },
+      xaxis: Object.assign({}, baseLayout().xaxis, { tickformat: ',.0s' }),
+      yaxis: Object.assign({}, baseLayout().yaxis, { autorange: true, tickfont: { color: COLORS.text, size: 10 } })
+    }), PLOTLY_CONFIG);
   }
 
-  function renderTopReps(tsr) {
+  // FIX #6: Profit Share = Not Available
+  function renderProfitNotAvailable() {
+    const target = el('chart-ship-profit');
+    clearChart(target);
+    target.innerHTML =
+      '<div class="not-available">' +
+        '<div class="na-icon">⚠</div>' +
+        '<div class="na-title">Profit Data Not Available</div>' +
+        '<div class="na-text">efiCore does not track COGS at invoice level. This chart will be enabled once profit calculation is finalized (backend bug B1).</div>' +
+      '</div>';
+  }
+
+  // FIX #7: Top Sales Reps — filter out system entries; FIX #3f: dynamic subtitle
+  function renderTopReps(tsr, meta) {
     const existing = el('top-reps-row');
     if (existing) {
       ['chart-top-reps', 'chart-monthly'].forEach(id => {
-        const node = el(id); if (node) Plotly.purge(node);
+        const node = el(id); if (node) clearChart(node);
       });
       existing.remove();
     }
     if (!tsr || !tsr.length) return;
 
+    // Filter out system entries (WAREHOUSE *, etc.)
+    const real = tsr.filter(r => !isSystemRep(r.name));
+    const top5 = real.slice(0, 5);
+
+    const windowDays = meta && meta.top_sales_reps_window_days;
+    const subtitle = windowDays
+      ? 'Last ' + windowDays + ' days · highest sales by salesperson (system entries excluded)'
+      : 'Highest sales by salesperson (system entries excluded)';
+
     const html = '<div id="top-reps-row" class="row cols-2 fade-up" style="animation-delay:0.65s">' +
                    '<div class="chart-card">' +
-                     '<h3 class="chart-title">Top 5 Sales Reps (Last 7 Days)</h3>' +
-                     '<p class="chart-sub">Highest sales by sales representative</p>' +
+                     '<h3 class="chart-title">Top 5 Salespeople</h3>' +
+                     '<p class="chart-sub">' + subtitle + '</p>' +
                      '<div class="chart" id="chart-top-reps"></div>' +
                    '</div>' +
                    '<div class="chart-card">' +
@@ -1267,59 +1293,30 @@
                  '</div>';
     el('dashboard').insertAdjacentHTML('beforeend', html);
 
-    const names  = tsr.map(r => r.name).reverse();
-    const vals   = tsr.map(r => r.sales).reverse();
-    const len    = names.length;
-    const colors = names.map((_, i) => lerp(COLORS.blue, COLORS.teal, len > 1 ? i / (len - 1) : 0));
+    if (!top5.length) {
+      el('chart-top-reps').innerHTML = '<div class="no-data">No salespeople data (all entries are system)</div>';
+    } else {
+      const names  = top5.map(r => r.name).reverse();
+      const vals   = top5.map(r => r.sales).reverse();
+      const len    = names.length;
+      const colors = names.map((_, i) => lerp(COLORS.blue, COLORS.teal, len > 1 ? i / (len - 1) : 0));
 
-    Plotly.newPlot('chart-top-reps', [{
-      x: vals, y: names, type: 'bar', orientation: 'h',
-      marker: { color: colors },
-      text: vals.map(v => fm(v)), textposition: 'outside',
-      textfont: { family: PLOTLY_FONT.family, size: 12, color: COLORS.text },
-      hovertemplate: '<b>%{y}</b><br>Sales: RM %{x:,.0f}<extra></extra>'
-    }], Object.assign(baseLayout(), {
-      margin: { l: 140, r: 60, t: 10, b: 40 },
-      xaxis: Object.assign({}, baseLayout().xaxis, { tickprefix: 'RM ', tickformat: ',.0s' }),
-      yaxis: Object.assign({}, baseLayout().yaxis, { autorange: true, tickfont: { color: COLORS.text, size: 12 } })
-    }), PLOTLY_CONFIG);
-  }
-
-  function renderMonthlyInfo(mi) {
-    const sub = el('monthly-progress-sub');
-    if (!sub) return;
-    const pct = mi.days_in_month ? (mi.day_of_month / mi.days_in_month * 100).toFixed(0) : 0;
-    sub.textContent = (mi.current_month || '—') + ' — Day ' + (mi.day_of_month || '?') +
-                      '/' + (mi.days_in_month || '?') + ' (' + pct + '% complete) · ' +
-                      (mi.days_remaining || '?') + ' days remaining · MTD: ' + fm(mi.mtd_sales || 0);
-
-    const mtd = mi.mtd_sales || 0;
-    const axisMax = mtd > 0 ? mtd * 1.5 : 1;
-    const ticks = gaugeTicks(axisMax);
-
-    Plotly.newPlot('chart-monthly', [{
-      type: 'indicator',
-      mode: 'gauge+number',
-      value: mtd,
-      number: { prefix: 'RM ', font: { size: 18 }, valueformat: ',.0f' },
-      title: {
-        text: 'MTD Sales<br><span style="font-size:14px;color:' + COLORS.muted + '">' + (mi.current_month || '') + '</span>',
-        font: { size: 14 }
-      },
-      gauge: {
-        axis: { range: [0, axisMax], tickvals: ticks.tickvals, ticktext: ticks.ticktext, tickfont: { color: COLORS.muted, size: 10 } },
-        bar: { color: COLORS.blue },
-        steps: [
-          { range: [0, mtd * 0.5],   color: '#eff6ff' },
-          { range: [mtd * 0.5, mtd], color: '#dbeafe' }
-        ],
-        threshold: { line: { color: COLORS.amber, width: 4 }, thickness: 0.75, value: mtd }
-      }
-    }], Object.assign(baseLayout(), { margin: { l: 40, r: 40, t: 60, b: 40 } }), PLOTLY_CONFIG);
+      Plotly.newPlot('chart-top-reps', [{
+        x: vals, y: names, type: 'bar', orientation: 'h',
+        marker: { color: colors },
+        text: vals.map(v => fm(v)), textposition: 'outside',
+        textfont: { family: PLOTLY_FONT.family, size: 12, color: COLORS.text },
+        hovertemplate: '<b>%{y}</b><br>Sales: RM %{x:,.0f}<extra></extra>'
+      }], Object.assign(baseLayout(), {
+        margin: { l: 140, r: 60, t: 10, b: 40 },
+        xaxis: Object.assign({}, baseLayout().xaxis, { tickprefix: 'RM ', tickformat: ',.0s' }),
+        yaxis: Object.assign({}, baseLayout().yaxis, { autorange: true, tickfont: { color: COLORS.text, size: 12 } })
+      }), PLOTLY_CONFIG);
+    }
   }
 
   // ====================================================================
-  // Bootstrap: check existing session
+  // Bootstrap
   // ====================================================================
   (function init() {
     const session = getSession();
