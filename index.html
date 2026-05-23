@@ -389,9 +389,9 @@
     </div>
 
     <div class="row cols-2">
-      <div class="chart-card fade-up" style="animation-delay: 0.4s;">
+      <div class="chart-card fade-up" id="card-map" style="animation-delay: 0.4s;">
         <h3 class="chart-title">Sales by Malaysian State</h3>
-        <p class="chart-sub">Bubble size = sales · color intensity scales with volume</p>
+        <p class="chart-sub" id="chart-map-sub">Bubble size = sales · color intensity scales with volume</p>
         <div class="chart tall" id="chart-map"></div>
       </div>
       <!-- FIX #5: Top Products with smart fallback subtitle -->
@@ -404,19 +404,19 @@
 
     <!-- FIX #4a: Route donuts → horizontal bars; FIX #6: Profit Share = Not Available -->
     <div class="row cols-3">
-      <div class="chart-card fade-up" style="animation-delay: 0.5s;">
+      <div class="chart-card fade-up" id="card-ship-profit" style="animation-delay: 0.5s;">
         <h3 class="chart-title">Profit Share by Delivery Route</h3>
-        <p class="chart-sub">Profit contribution per route</p>
+        <p class="chart-sub" id="chart-ship-profit-sub">Profit contribution per route</p>
         <div class="chart tall" id="chart-ship-profit"></div>
       </div>
-      <div class="chart-card fade-up" style="animation-delay: 0.55s;">
+      <div class="chart-card fade-up" id="card-ship-volume" style="animation-delay: 0.55s;">
         <h3 class="chart-title">Top 10 Routes by Volume</h3>
-        <p class="chart-sub">Units shipped per route (top 10)</p>
+        <p class="chart-sub" id="chart-ship-volume-sub">Units shipped per route (top 10)</p>
         <div class="chart tall" id="chart-ship-volume"></div>
       </div>
-      <div class="chart-card fade-up" style="animation-delay: 0.6s;">
+      <div class="chart-card fade-up" id="card-ship-orders" style="animation-delay: 0.6s;">
         <h3 class="chart-title">Top 10 Routes by Order Count</h3>
-        <p class="chart-sub">Number of orders per route (top 10)</p>
+        <p class="chart-sub" id="chart-ship-orders-sub">Number of orders per route (top 10)</p>
         <div class="chart tall" id="chart-ship-orders"></div>
       </div>
     </div>
@@ -932,9 +932,26 @@
       if (_divisionGroupsCache) renderDivisionGroupsDonut(_divisionGroupsCache);
     };
 
+    // FIX #10: Detect when date filter is narrower than data window;
+    // if so, charts driven by pre-aggregated data (Map/Products/Routes) show a warning.
+    const fullFrom = firstDate, fullTo = today.toISOString().slice(0, 10);
+    function applyDateWarning(cardId, subId, defaultSub, active) {
+      const card = el(cardId), sub = el(subId);
+      if (!sub) return;
+      if (active) {
+        if (card) card.classList.add('dim');
+        sub.innerHTML = '<span style="color:var(--amber);font-weight:500">⚠ Full-period totals · does not respect date filter</span>';
+      } else {
+        if (card) card.classList.remove('dim');
+        sub.textContent = defaultSub;
+      }
+    }
+
     function applyFilters() {
       try {
         const from = el('date-from').value, to = el('date-to').value;
+        // FIX #10: is date filter active (narrower than full data range)?
+        const dateFilterActive = (from && from > fullFrom) || (to && to < fullTo);
 
         // FIX #3b: Date range validation
         if (from && to && from > to) {
@@ -977,6 +994,10 @@
           renderMtdInGauge(d.monthly_info || {}, mtdValue, targetInfo);   // FIX #4: independent of date filter
           // FIX #5: Salespeople also independent of date filter
           updateRepsData(d.all_sales_reps, d.division_sales_reps, selectedDivs, allDivs, d._meta || {});
+          // FIX #10: keep date-warning state consistent even on empty filter
+          applyDateWarning('card-map',         'chart-map-sub',         'Bubble size = sales · color intensity scales with volume', dateFilterActive);
+          applyDateWarning('card-ship-volume', 'chart-ship-volume-sub', 'Units shipped per route (top 10)',                          dateFilterActive);
+          applyDateWarning('card-ship-orders', 'chart-ship-orders-sub', 'Number of orders per route (top 10)',                       dateFilterActive);
           return;
         }
 
@@ -1044,6 +1065,19 @@
 
         // FIX #5: Salespeople (Top 5 + optional Bottom 5 / All), filtered by division
         updateRepsData(d.all_sales_reps, d.division_sales_reps, selectedDivs, allDivs, d._meta || {});
+
+        // FIX #10: Warn user that pre-aggregated charts ignore date filter
+        applyDateWarning('card-map',         'chart-map-sub',         'Bubble size = sales · color intensity scales with volume', dateFilterActive);
+        applyDateWarning('card-ship-volume', 'chart-ship-volume-sub', 'Units shipped per route (top 10)',                          dateFilterActive);
+        applyDateWarning('card-ship-orders', 'chart-ship-orders-sub', 'Number of orders per route (top 10)',                       dateFilterActive);
+        // Top Products: renderTopProducts manages its own subtitle for division logic;
+        // append date warning on top when applicable
+        if (dateFilterActive) {
+          const card = el('card-products'), sub = el('chart-products-sub');
+          if (card) card.classList.add('dim');
+          if (sub) sub.innerHTML = '<span style="color:var(--amber);font-weight:500">⚠ Full-period totals · does not respect date filter</span>';
+        }
+        // (When NOT active, renderTopProducts already restored proper subtitle.)
 
       } catch (e) {
         console.error('Filter error:', e);
