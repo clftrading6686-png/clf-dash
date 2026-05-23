@@ -407,24 +407,24 @@
       <div class="chart-card fade-up" style="animation-delay: 0.5s;">
         <h3 class="chart-title">Profit Share by Delivery Route</h3>
         <p class="chart-sub">Profit contribution per route</p>
-        <div class="chart donut-sm" id="chart-ship-profit"></div>
+        <div class="chart tall" id="chart-ship-profit"></div>
       </div>
       <div class="chart-card fade-up" style="animation-delay: 0.55s;">
-        <h3 class="chart-title">Top 15 Routes by Volume</h3>
-        <p class="chart-sub">Units shipped per route (top 15)</p>
-        <div class="chart donut-sm" id="chart-ship-volume"></div>
+        <h3 class="chart-title">Top 10 Routes by Volume</h3>
+        <p class="chart-sub">Units shipped per route (top 10)</p>
+        <div class="chart tall" id="chart-ship-volume"></div>
       </div>
       <div class="chart-card fade-up" style="animation-delay: 0.6s;">
-        <h3 class="chart-title">Top 15 Routes by Order Count</h3>
-        <p class="chart-sub">Number of orders per route (top 15)</p>
-        <div class="chart donut-sm" id="chart-ship-orders"></div>
+        <h3 class="chart-title">Top 10 Routes by Order Count</h3>
+        <p class="chart-sub">Number of orders per route (top 10)</p>
+        <div class="chart tall" id="chart-ship-orders"></div>
       </div>
     </div>
 
   </section>
 
   <footer class="footer">
-    <strong>CLF Trading Sdn. Bhd.</strong> · Kemaman, Terengganu, Malaysia<br>
+    <strong>CLF Trading Sdn. Bhd.</strong> · Mentakab, Pahang, Malaysia<br>
     Sales Performance Dashboard © <span id="cur-year"></span>
   </footer>
 
@@ -465,22 +465,13 @@
     'Sabah':{lat:5.50,lon:117.00},'Sarawak':{lat:2.50,lon:113.00},'Selangor':{lat:3.20,lon:101.52},
     'Terengganu':{lat:5.10,lon:103.00}
   };
-  const STATE_ALIAS = {
-    'wp kuala lumpur':'Kuala Lumpur','w.p. kuala lumpur':'Kuala Lumpur','kl':'Kuala Lumpur',
-    'penang':'Pulau Pinang','pinang':'Pulau Pinang','malacca':'Melaka','trengganu':'Terengganu',
-    'ternngganu':'Terengganu','terengganu.':'Terengganu','kuala lumpur':'Kuala Lumpur',
-    'selangot':'Selangor','johor bahru':'Johor','kemanam':'Pahang','kuantan':'Pahang',
-    'kuala terengganu':'Terengganu','wilayah persekutuan kuala lumpur':'Kuala Lumpur',
-    'pahang':'Pahang','terengganu':'Terengganu','selangor':'Selangor','kelantan':'Kelantan',
-    'johor':'Johor','kedah':'Kedah','melaka':'Melaka','perak':'Perak','perlis':'Perlis',
-    'sabah':'Sabah','sarawak':'Sarawak','negeri sembilan':'Negeri Sembilan'
-  };
+  // Round 4: simplified — backend (B14) now normalizes states upstream.
+  // Keep case-insensitive fallback as a safety net only.
   function normState(s) {
     if (!s) return null;
     const k = s.trim();
     if (MY_STATES[k]) return k;
     const l = k.toLowerCase();
-    if (STATE_ALIAS[l]) return STATE_ALIAS[l];
     for (const t of Object.keys(MY_STATES)) if (t.toLowerCase() === l) return t;
     return null;
   }
@@ -933,8 +924,8 @@
     const firstDate = daily.length > 0 ? daily[0].date : today.toISOString().slice(0, 10);
     el('date-from').value = firstDate;
     el('date-to').value   = today.toISOString().slice(0, 10);
-    el('date-from').onchange = applyFilters;
-    el('date-to').onchange   = applyFilters;
+    el('date-from').onchange = () => { autoSuggestGranularity(); applyFilters(); };
+    el('date-to').onchange   = () => { autoSuggestGranularity(); applyFilters(); };
 
     el('chart-segment-back').onclick = () => {
       _divisionDrillPrefix = null;
@@ -1169,6 +1160,22 @@
     });
   }
 
+  // FIX #9 (round 4): Auto-pick granularity based on date range so single-month → Daily
+  function autoSuggestGranularity() {
+    const from = el('date-from') ? el('date-from').value : '';
+    const to   = el('date-to')   ? el('date-to').value   : '';
+    if (!from || !to) return;
+    const days = (new Date(to) - new Date(from)) / 86400000;
+    let suggested;
+    if (days <= 93)   suggested = 'D';   // up to 3 months → daily
+    else if (days <= 365) suggested = 'W';   // 3 mo - 1 yr → weekly
+    else suggested = 'M';
+    if (suggested === _trendGranularity) return;
+    _trendGranularity = suggested;
+    const wrap = el('trend-granularity');
+    if (wrap) wrap.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.g === suggested));
+  }
+
   // ====================================================================
   // Division Group + drill-down
   // ====================================================================
@@ -1269,15 +1276,18 @@
     const labels = mt.map(r => r.label || fmM(r.month || r.key || ''));
     const sales  = mt.map(r => r.sales);
     const profit = hasProfit ? mt.map(r => r.profit || 0) : [];
+    // FIX #9 (round 4): lines+markers so single point is visible
     const traces = [{
-      x: labels, y: sales, name: 'Sales', type: 'scatter', mode: 'lines',
+      x: labels, y: sales, name: 'Sales', type: 'scatter', mode: 'lines+markers',
       line: { color: COLORS.blue, width: 2.5, shape: 'spline', smoothing: 1 },
+      marker: { size: 6, color: COLORS.blue },
       fill: 'tozeroy', fillcolor: 'rgba(37,99,235,0.12)',
       hovertemplate: '<b>%{x}</b><br>Sales: RM %{y:,.0f}<extra></extra>'
     }];
     if (hasProfit) traces.push({
-      x: labels, y: profit, name: 'Profit', type: 'scatter', mode: 'lines',
+      x: labels, y: profit, name: 'Profit', type: 'scatter', mode: 'lines+markers',
       line: { color: COLORS.green, width: 2.5, shape: 'spline', smoothing: 1 },
+      marker: { size: 6, color: COLORS.green },
       fill: 'tozeroy', fillcolor: 'rgba(5,150,105,0.12)',
       hovertemplate: '<b>%{x}</b><br>Profit: RM %{y:,.0f}<extra></extra>'
     });
@@ -1378,31 +1388,30 @@
     }), PLOTLY_CONFIG);
   }
 
-  // FIX #4a: Route donut → horizontal bar (Top 15)
+  // FIX #8 (round 4): Route bars Top 10, taller, bigger font
   function renderRouteBars(routes, key, label, color, chartId) {
     const target = el(chartId);
     clearChart(target);
     if (!routes || !routes.length) { target.innerHTML = '<div class="no-data">No route data</div>'; return; }
-    const top15 = routes
+    const top10 = routes
       .filter(r => r[key])
       .sort((a, b) => b[key] - a[key])
-      .slice(0, 15);
-    if (!top15.length) { target.innerHTML = '<div class="no-data">No route data</div>'; return; }
-    const names = top15.map(r => r.name).reverse();
-    const vals  = top15.map(r => r[key]).reverse();
+      .slice(0, 10);
+    if (!top10.length) { target.innerHTML = '<div class="no-data">No route data</div>'; return; }
+    const names = top10.map(r => r.name).reverse();
+    const vals  = top10.map(r => r[key]).reverse();
     const len = names.length;
     const colors = names.map((_, i) => lerp(color, COLORS.amber, len > 1 ? i / (len - 1) * 0.4 : 0));
-    const isMoney = false; // volume/orders are counts, not money
     Plotly.newPlot(target, [{
       x: vals, y: names, type: 'bar', orientation: 'h',
       marker: { color: colors },
       text: vals.map(v => v.toLocaleString()), textposition: 'auto', cliponaxis: false,
-      textfont: { family: PLOTLY_FONT.family, size: 10, color: COLORS.text },
+      textfont: { family: PLOTLY_FONT.family, size: 13, color: COLORS.text },
       hovertemplate: '<b>%{y}</b><br>' + label + ': %{x:,.0f}<extra></extra>'
     }], Object.assign(baseLayout(), {
-      margin: { l: 90, r: 60, t: 10, b: 30 },
+      margin: { l: 110, r: 70, t: 10, b: 40 },
       xaxis: Object.assign({}, baseLayout().xaxis, { tickformat: ',.0s' }),
-      yaxis: Object.assign({}, baseLayout().yaxis, { autorange: true, tickfont: { color: COLORS.text, size: 10 } })
+      yaxis: Object.assign({}, baseLayout().yaxis, { autorange: true, tickfont: { color: COLORS.text, size: 12 } })
     }), PLOTLY_CONFIG);
   }
 
