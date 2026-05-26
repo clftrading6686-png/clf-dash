@@ -57,7 +57,8 @@
   .divider { width: 60px; height: 4px; margin: 0 auto; border-radius: 999px; background: linear-gradient(90deg, var(--blue), var(--teal)); }
 
   /* Filters Bar */
-  .filters-bar { display: flex; align-items: center; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; position: relative; z-index: 50; }
+  /* A8 (round 7): filter bar gets card styling so it matches the rest of dashboard */
+  .filters-bar { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; flex-wrap: wrap; position: relative; z-index: 50; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; box-shadow: var(--shadow); }
   .filter-group { display: flex; align-items: center; gap: 8px; }
   .filter-label { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; }
   .multi-select-wrap { position: relative; min-width: 220px; }
@@ -135,6 +136,18 @@
   .warn-banner { background: var(--amber-tint); border: 1px solid #fde68a; color: #92400e; padding: 10px 16px; border-radius: 12px; font-size: 13px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
   .warn-banner.error { background: var(--rose-tint); border-color: #fecdd3; color: #9f1239; }
   .warn-banner svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+  /* A3 (round 7): slim banner replacing the old "Profit Not Available" card */
+  .profit-banner {
+    background: #f1f5f9; border: 1px solid var(--border); border-left: 4px solid var(--amber);
+    border-radius: var(--radius); padding: 12px 18px; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--muted);
+  }
+  .profit-banner strong { color: var(--text); }
+  .profit-banner .pb-icon {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--amber-tint); color: var(--amber);
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; font-weight: 700;
+  }
 
   .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 24px; }
   .kpi { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--blue); border-radius: var(--radius); padding: 22px 24px; box-shadow: var(--shadow); transition: all 0.25s ease; display: flex; align-items: center; gap: 16px; }
@@ -403,13 +416,17 @@
       </div>
     </div>
 
-    <!-- FIX #4a: Route donuts → horizontal bars; FIX #6: Profit Share = Not Available -->
-    <div class="row cols-3">
-      <div class="chart-card fade-up" id="card-ship-profit" style="animation-delay: 0.5s;">
-        <h3 class="chart-title">Profit Share by Delivery Route</h3>
-        <p class="chart-sub" id="chart-ship-profit-sub">Profit contribution per route</p>
-        <div class="chart tall" id="chart-ship-profit"></div>
+    <!-- A3 (round 7): Profit "Not Available" moved out of Row 3 to slim banner above;
+         Row 3 is now 2 cols (Volume + Orders). -->
+    <div class="profit-banner fade-up" style="animation-delay: 0.5s;">
+      <span class="pb-icon">⚠</span>
+      <div>
+        <strong>Profit data not yet available</strong> ·
+        efiCore does not track COGS at invoice level. Profit charts will appear here once the calculation is finalized.
       </div>
+    </div>
+
+    <div class="row cols-2">
       <div class="chart-card fade-up" id="card-ship-volume" style="animation-delay: 0.55s;">
         <h3 class="chart-title">Top 10 Routes by Volume</h3>
         <p class="chart-sub" id="chart-ship-volume-sub">Units shipped per route (top 10)</p>
@@ -1160,15 +1177,17 @@
     // Subtitle: combined status line
     const sub = el('monthly-progress-sub');
     if (sub) {
-      const targetTxt = target
-        ? ' · Target ' + fm(target) + ' (12-mo avg × 1.2, ' + targetInfo.monthsUsed + ' mo)'
-        : ' · Target N/A';
+      // A5 (round 7): compact subtitle — one line with the essentials
+      const monthTxt = (mi.current_month || '—') + ' · day ' + dayOfMonth + '/' + daysInMonth;
+      const statusTxt = target
+        ? ' · <strong style="color:' + statusColor + '">' + status + '</strong>'
+        : '';
+      const projectionTxt = target
+        ? ' · Projected EOM ' + fm(projected) + ' (' + pctProj.toFixed(0) + '%)'
+        : '';
       sub.innerHTML =
-        (mi.current_month || '—') + ' · Day ' + dayOfMonth + '/' + daysInMonth +
-        ' (' + pctComplete + '% of month)' + targetTxt +
-        '<br>MTD <strong>' + fm(mtdValue) + '</strong>' +
-        (target ? ' = <strong style="color:' + statusColor + '">' + pctTarget.toFixed(0) + '%</strong> of target · projected EOM <strong>' + fm(projected) + '</strong> (' + pctProj.toFixed(0) + '%) · ' + status : '') +
-        '<br><span style="font-size:11px;color:var(--muted);font-style:italic">(Always reflects current month; ignores date filter)</span>';
+        monthTxt + statusTxt + projectionTxt +
+        '<br><span style="font-size:11px;color:var(--muted)">Target = 12-mo avg × 1.2 · always current month, ignores date filter</span>';
     }
 
     // Gauge axis goes 0 → target × 1.1 (so over-achieving shows extra)
@@ -1461,18 +1480,20 @@
     clearChart(target);
     if (!tp || !tp.length) { target.innerHTML = '<div class="no-data">No product data</div>'; return; }
     const top10 = tp.slice(0, 10);
-    const names = top10.map(r => r.name).reverse();
+    const namesFull = top10.map(r => r.name).reverse();   // B6 (round 7): keep full names for hover
+    const namesShort = namesFull.map(p => p.length > 30 ? p.slice(0, 27) + '…' : p);
     const vals  = top10.map(r => r.sales).reverse();
-    const len = names.length;
-    const colors = names.map((_, i) => lerp(COLORS.blue, COLORS.teal, len > 1 ? i / (len - 1) : 0));
+    const len = namesShort.length;
+    const colors = namesShort.map((_, i) => lerp(COLORS.blue, COLORS.teal, len > 1 ? i / (len - 1) : 0));
     Plotly.newPlot(target, [{
       x: vals,
-      y: names.map(p => p.length > 30 ? p.slice(0, 27) + '…' : p),
+      y: namesShort,
+      customdata: namesFull,
       type: 'bar', orientation: 'h',
       marker: { color: colors },
       text: vals.map(v => fm(v)), textposition: 'auto', cliponaxis: false,
       textfont: { family: PLOTLY_FONT.family, size: 11, color: COLORS.text },
-      hovertemplate: '<b>%{y}</b><br>Sales: RM %{x:,.0f}<extra></extra>'
+      hovertemplate: '<b>%{customdata}</b><br>Sales: RM %{x:,.0f}<extra></extra>'
     }], Object.assign(baseLayout(), {
       margin: { l: 200, r: 70, t: 10, b: 40 },
       xaxis: Object.assign({}, baseLayout().xaxis, { tickprefix: 'RM ', tickformat: ',.0s' }),
@@ -1510,6 +1531,7 @@
   // FIX #6: Profit Share = Not Available
   function renderProfitNotAvailable() {
     const target = el('chart-ship-profit');
+    if (!target) return;   // A3 (round 7): card removed, banner shows the message now
     clearChart(target);
     target.innerHTML =
       '<div class="not-available">' +
