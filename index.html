@@ -46,13 +46,14 @@
   .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
   .login-footer { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; color: var(--muted); font-size: 12px; }
 
-  .container { max-width: 1400px; margin: 0 auto; padding: 48px 32px 32px; }
+  /* A4 (round 6): tighter top spacing so KPIs stay above the fold on 13" laptops */
+  .container { max-width: 1400px; margin: 0 auto; padding: 28px 32px 32px; }
 
-  .header { text-align: center; margin-bottom: 40px; }
+  .header { text-align: center; margin-bottom: 24px; }
   .eyebrow { display: inline-block; padding: 6px 16px; border-radius: 999px; background: var(--blue-tint); color: var(--blue); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
-  .title { font-size: 44px; font-weight: 800; margin: 0 0 12px; letter-spacing: -0.02em; color: var(--text); }
+  .title { font-size: 32px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.02em; color: var(--text); }
   .title .accent { color: var(--blue); }
-  .subtitle { color: var(--muted); font-size: 16px; margin: 0 auto 20px; max-width: 620px; font-weight: 400; }
+  .subtitle { color: var(--muted); font-size: 14px; margin: 0 auto 14px; max-width: 620px; font-weight: 400; }
   .divider { width: 60px; height: 4px; margin: 0 auto; border-radius: 999px; background: linear-gradient(90deg, var(--blue), var(--teal)); }
 
   /* Filters Bar */
@@ -209,14 +210,12 @@
   @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   .fade-up { opacity: 0; animation: fadeUp 0.6s ease forwards; }
 
-  /* FIX #3e: better responsive breakpoints */
-  @media (max-width: 1280px) {
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  }
+  /* FIX #3e + A1 (round 6): KPIs stay 4-across on 13" laptops; collapse only on tablets */
   @media (max-width: 1024px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
     .row.cols-2, .row.cols-3 { grid-template-columns: 1fr; }
-    .container { padding: 32px 24px 24px; }
-    .title { font-size: 36px; }
+    .container { padding: 24px 24px 24px; }
+    .title { font-size: 28px; }
   }
   @media (max-width: 640px) {
     .container { padding: 24px 16px 24px; }
@@ -346,22 +345,24 @@
       <span id="warn-text"></span>
     </div>
 
+    <!-- A2 (round 6): Profit moved to slot 4 (last) so the "Not Available" placeholder
+         no longer occupies the #2 hero position. Order: Revenue → Units → AOV → Profit. -->
     <div class="kpi-grid">
       <div class="kpi blue fade-up" style="animation-delay: 0.1s;">
         <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
         <div><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="kpi-revenue">RM 0</div></div>
       </div>
-      <div class="kpi teal fade-up" style="animation-delay: 0.15s;">
-        <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
-        <div><div class="kpi-label">Total Profit</div><div class="kpi-value" id="kpi-profit">RM 0</div></div>
-      </div>
-      <div class="kpi green fade-up" style="animation-delay: 0.2s;">
+      <div class="kpi green fade-up" style="animation-delay: 0.15s;">
         <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
         <div><div class="kpi-label">Units Sold</div><div class="kpi-value" id="kpi-units">0</div></div>
       </div>
-      <div class="kpi amber fade-up" style="animation-delay: 0.25s;">
+      <div class="kpi amber fade-up" style="animation-delay: 0.2s;">
         <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
         <div><div class="kpi-label">Avg. Order Value</div><div class="kpi-value" id="kpi-aov">RM 0</div></div>
+      </div>
+      <div class="kpi teal fade-up" style="animation-delay: 0.25s;">
+        <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+        <div><div class="kpi-label">Total Profit</div><div class="kpi-value" id="kpi-profit">RM 0</div></div>
       </div>
     </div>
 
@@ -590,12 +591,16 @@
       .reduce((s, r) => s + r.sales, 0);
   }
 
-  // FIX #10 (round 2): Compute set of YYYY-MM months covered by date range
+  // FIX #10 (round 2) + B2 (round 6): months covered by date range.
+  // If only one bound is set, use data bounds for the other — keeps month filter
+  // consistent with daily filter behavior.
   function monthsInRange(from, to) {
+    const startStr = from || _dataStartDate;
+    const endStr   = to   || _dataEndDate;
     const out = new Set();
-    if (!from || !to) return out;
-    const start = new Date(from.slice(0, 7) + '-01T00:00:00Z');
-    const end = new Date(to + 'T00:00:00Z');
+    if (!startStr || !endStr) return out;
+    const start = new Date(startStr.slice(0, 7) + '-01T00:00:00Z');
+    const end   = new Date(endStr   + 'T00:00:00Z');
     while (start <= end) {
       out.add(start.toISOString().slice(0, 7));
       start.setUTCMonth(start.getUTCMonth() + 1);
@@ -788,6 +793,7 @@
   // FIX #3: Trend granularity state
   let _trendGranularity = 'M';        // 'D' | 'W' | 'M'
   let _lastFilteredForTrend = [];     // cache filtered daily rows
+  let _userPickedGranularity = false; // FIX B3 (round 6): suppress auto-suggest after manual pick
 
   // FIX #4: Cache full daily + monthly_info + selectedDivs for MTD/target gauge
   // (these are independent of date range filter)
@@ -813,6 +819,7 @@
 
     _divisionDrillPrefix = null;
     _divisionGroupsCache = null;
+    _userPickedGranularity = false;   // FIX B3 (round 6): reset on fresh data load
     _divisionMonth = (d.monthly_info && d.monthly_info.current_month) || new Date().toISOString().slice(0, 7);
 
     // FIX #11: compute true data range from daily_breakdown
@@ -903,11 +910,15 @@
       groupCb.addEventListener('click', e => {
         e.stopPropagation();
         const newState = groupCb.checked;
+        // FIX B1 (round 6): only toggle children that are VISIBLE
+        // (search filter may have hidden some — don't silently change hidden state)
         childCbs.forEach(c => {
+          if (c.parentElement && c.parentElement.style.display === 'none') return;
           c.checked = newState;
           if (newState) selectedDivs.add(c.value); else selectedDivs.delete(c.value);
         });
-        groupCb.indeterminate = false;
+        // Re-evaluate parent state from actual children (some may still be hidden+selected)
+        updateGroupCheckboxState(groupCb, members);
         updateLabel(); applyFilters();
       });
     });
@@ -1214,21 +1225,23 @@
     wrap.querySelectorAll('button[data-g]').forEach(btn => {
       btn.onclick = () => {
         _trendGranularity = btn.dataset.g;
+        _userPickedGranularity = true;   // FIX B3 (round 6): respect manual choice
         wrap.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
         renderTrendByGranularity();
       };
     });
   }
 
-  // FIX #9 (round 4): Auto-pick granularity based on date range so single-month → Daily
+  // FIX #9 (round 4) + B3 (round 6): Auto-pick only if user hasn't manually picked
   function autoSuggestGranularity() {
+    if (_userPickedGranularity) return;   // FIX B3: respect manual choice
     const from = el('date-from') ? el('date-from').value : '';
     const to   = el('date-to')   ? el('date-to').value   : '';
     if (!from || !to) return;
     const days = (new Date(to) - new Date(from)) / 86400000;
     let suggested;
-    if (days <= 93)   suggested = 'D';   // up to 3 months → daily
-    else if (days <= 365) suggested = 'W';   // 3 mo - 1 yr → weekly
+    if (days <= 93)   suggested = 'D';
+    else if (days <= 365) suggested = 'W';
     else suggested = 'M';
     if (suggested === _trendGranularity) return;
     _trendGranularity = suggested;
