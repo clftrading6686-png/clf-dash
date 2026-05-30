@@ -1790,13 +1790,11 @@
       margin: { l: 0, r: 0, t: 0, b: 0 },
       geo: {
         scope: 'asia', projection: { type: 'mercator' }, bgcolor: 'rgba(0,0,0,0)',
-        // N7 hotfix: land + ocean stay darker (N7 intent), but country + coastline
-        // are deliberately MUCH darker than ocean so Malaysia outline is visible.
-        // (The original N7 patch set both = oceancolor #cbd5e1 -> map invisible.)
-        showland: true,      landcolor:      '#e2e8f0',
-        showocean: true,     oceancolor:     '#cbd5e1',
-        showcountries: true, countrycolor:   '#64748b',
-                             coastlinecolor: '#475569',
+        // N7 REVERTED — round-8 darker palette caused the map to render invisible in
+        // user's browser despite my hotfix. Restored exact round-7 values (known good).
+        // Other B7 polish items kept. If N7 is wanted later, needs live-render testing.
+        showland: true, landcolor: '#f8fafc', showocean: true, oceancolor: '#eef2f7',
+        showcountries: true, countrycolor: '#cbd5e1', coastlinecolor: '#cbd5e1',
         center: { lat: 4.0, lon: 109.5 }, lonaxis: { range: [98, 120] }, lataxis: { range: [0.5, 7.5] }
       }
     }), PLOTLY_CONFIG);
